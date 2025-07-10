@@ -1,0 +1,50 @@
+name: Daily Price Scraper
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Daily at 6 AM UTC
+  workflow_dispatch:  # Allows manual trigger
+
+jobs:
+  scrape-prices:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: scrapers/package.json
+    
+    - name: Install dependencies
+      run: |
+        cd scrapers
+        npm install
+    
+    - name: Install Playwright browsers
+      run: |
+        cd scrapers
+        npx playwright install chromium
+    
+    - name: Run JustBats scraper
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      run: |
+        cd scrapers
+        node justbats-scraper-playwright.js
+    
+    - name: Run Amazon integration
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        AMAZON_ACCESS_KEY: ${{ secrets.AMAZON_ACCESS_KEY }}
+        AMAZON_SECRET_KEY: ${{ secrets.AMAZON_SECRET_KEY }}
+        AMAZON_PARTNER_TAG: ${{ secrets.AMAZON_PARTNER_TAG }}
+      run: |
+        cd scrapers
+        node amazon-integration.js

@@ -1,0 +1,8 @@
+{
+  "name": "bat-scrapers",
+  "version": "1.0.0",
+  "dependencies": {
+    "playwright": "^1.40.0",
+    "@supabase/supabase-js": "^2.38.0"
+  }
+}
