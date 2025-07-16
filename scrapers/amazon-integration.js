@@ -1,4 +1,4 @@
-const { supabase } = require('./scrapers/supabaseClient-node');
+const { supabase } = require('./supabaseClient-node');
 const AmazonApiClient = require('./amazon-api-client');
 const AmazonProductMapper = require('./amazon-product-mapper');
 

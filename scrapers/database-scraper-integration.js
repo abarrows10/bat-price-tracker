@@ -1,5 +1,5 @@
-const { supabase } = require('./scrapers/supabaseClient');
-const JustBatsScraperPlaywright = require('./scrapers/justbats-scraper-playwright');
+const { supabase } = require('./supabaseClient');
+const JustBatsScraperPlaywright = require('./justbats-scraper-playwright');
 
 class DatabaseScraperIntegration {
   constructor() {
