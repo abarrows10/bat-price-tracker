@@ -19,7 +19,7 @@ class JustBatsScraperPlaywright {
 
   async init() {
     this.browser = await chromium.launch({
-      headless: false // Set to true for production
+      headless: true // Set to true for production
     });
     
     // Create browser context with settings
