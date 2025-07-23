@@ -14,6 +14,7 @@ const BatPriceTracker = () => {
   const [selectedConstructions, setSelectedConstructions] = useState([]);
   const [selectedDrops, setSelectedDrops] = useState([]);
   const [selectedSwingWeights, setSelectedSwingWeights] = useState([]);
+  const [selectedYears, setSelectedYears] = useState([]);
   const [priceRange, setPriceRange] = useState([0, 600]);
   const [sortBy, setSortBy] = useState('certification-price');
   const [selectedImage, setSelectedImage] = useState(null);
@@ -119,7 +120,7 @@ const BatPriceTracker = () => {
       }
     });
 
-// Get swing weights
+    // Get swing weights
     const swingWeights = new Set();
     currentBats.forEach(bat => {
       if (bat.swingWeight) {
@@ -127,14 +128,18 @@ const BatPriceTracker = () => {
       }
     });
 
-  return {
-    brands,
-    materials, 
-    constructions,
-    drops: Array.from(drops).sort(),
-    swingWeights: Array.from(swingWeights).sort()
-  };
-    }, [bats, searchTerm, selectedCertifications]);
+    // Get years
+    const years = [...new Set(currentBats.map(bat => bat.year).filter(Boolean))].sort((a, b) => b - a);
+
+    return {
+      brands,
+      materials, 
+      constructions,
+      drops: Array.from(drops).sort(),
+      swingWeights: Array.from(swingWeights).sort(),
+      years
+    };
+  }, [bats, searchTerm, selectedCertifications]);
 
   const certifications = ['BBCOR', 'USSSA', 'USA Baseball'];
 
@@ -153,6 +158,7 @@ const BatPriceTracker = () => {
                          (bat.variants && bat.variants.some(variant => selectedDrops.includes(variant.drop)));
       
       const matchesSwingWeight = selectedSwingWeights.length === 0 || selectedSwingWeights.includes(bat.swingWeight);
+      const matchesYear = selectedYears.length === 0 || selectedYears.includes(bat.year);
 
       // Check price range against lowest available price (not selected variant)
       let lowestPrice = 999999;
@@ -170,7 +176,7 @@ const BatPriceTracker = () => {
       const matchesPrice = lowestPrice >= priceRange[0] && lowestPrice <= priceRange[1];
       
       return matchesSearch && matchesCertification && matchesBrand && matchesMaterial && 
-       matchesConstruction && matchesDrop && matchesSwingWeight && matchesPrice;
+       matchesConstruction && matchesDrop && matchesSwingWeight && matchesYear && matchesPrice;
     });
 
     // Sort results - using base bat data for consistent ordering
@@ -212,10 +218,6 @@ const BatPriceTracker = () => {
           const aPriceHigh = getLowestPrice(a);
           const bPriceHigh = getLowestPrice(b);
           return bPriceHigh - aPriceHigh;
-        case 'rating':
-          return (b.rating || 0) - (a.rating || 0);
-        case 'reviews':
-          return (b.reviews || 0) - (a.reviews || 0);
         case 'name':
           return (a.series || '').localeCompare(b.series || '');
         default:
@@ -226,7 +228,7 @@ const BatPriceTracker = () => {
     return filtered;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bats, searchTerm, selectedCertifications, selectedBrands, selectedMaterials, 
-      selectedConstructions, selectedDrops, selectedSwingWeights, priceRange, sortBy]);
+      selectedConstructions, selectedDrops, selectedSwingWeights, selectedYears, priceRange, sortBy]);
 
 // ===== SPLIT POINT - PART 2 STARTS HERE =====
 // This continues from Part 1 - place this code immediately after the Part 1 code
@@ -262,6 +264,7 @@ const BatPriceTracker = () => {
     setSelectedConstructions([]);
     setSelectedDrops([]);
     setSelectedSwingWeights([]);
+    setSelectedYears([]);
     setPriceRange([0, 600]);
   };
 
@@ -303,12 +306,6 @@ const BatPriceTracker = () => {
           {bat.year} • Model: {bat.modelNumber}{selectedVariant.length?.replace('"', '')}
         </p>
         
-        <div className="flex items-center mb-3">
-          <Star className="w-4 h-4 text-yellow-400 fill-current" />
-          <span className="ml-1 text-sm text-gray-300">
-            {bat.rating || 4.0} ({bat.reviews || 0} reviews)
-          </span>
-        </div>
         
         <div className="text-sm text-gray-400 mb-4">
             <div>{bat.construction} • {bat.material}</div>
