@@ -191,7 +191,10 @@ const BatPriceTracker = () => {
 
     return lowest;
   };
-
+   const closeImageModal = () => {
+      setSelectedImage(null);
+    };
+    
   const BatCard = ({ bat }) => {
     const selectedVariant = selectedVariants[bat.id];
     const { price: lowestPrice, retailer: lowestRetailer, inStock } = selectedVariant ? getLowestPrice(selectedVariant) : { price: null, retailer: null, inStock: false };
@@ -200,9 +203,7 @@ const BatPriceTracker = () => {
       setSelectedImage(imageSrc);
     };
 
-    const closeImageModal = () => {
-      setSelectedImage(null);
-    };
+   
 
     return (
       <div className="bg-gray-800 rounded-lg p-6 shadow-lg border border-gray-700 hover:border-blue-500 transition-all duration-200">
