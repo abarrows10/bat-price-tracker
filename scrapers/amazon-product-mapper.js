@@ -408,6 +408,28 @@ extractVariants(amazonProduct, title, features) {
     }
     
     // PRIORITY 2: Extract from title if no VariationAttributes
+    // FIRST: Check for explicit drop mention in title
+    const titleText = `${title} ${features.join(' ')}`.toLowerCase();
+    let explicitDrop = null;
+    
+    // Look for drop patterns like "-10 Drop", "-8 Drop", "(-5)", etc.
+    const dropPatterns = [
+      /\-(\d+)\s*drop/i,
+      /\(\-(\d+)\)/i,
+      /drop\s*\-?(\d+)/i,
+      /\-(\d+)\s*oz/i
+    ];
+    
+    for (const pattern of dropPatterns) {
+      const dropMatch = titleText.match(pattern);
+      if (dropMatch) {
+        explicitDrop = '-' + dropMatch[1];
+        console.log(`   🎯 Found explicit drop in title: ${explicitDrop}`);
+        break;
+      }
+    }
+    
+    // Extract length from title
     const titlePatterns = [
       /(\d+(?:\.\d+)?)["']\s*[\/\-]?\s*(\d+(?:\.\d+)?)\s*oz/i,
       /(\d+(?:\.\d+)?)\s*inch/i,
@@ -418,11 +440,36 @@ extractVariants(amazonProduct, title, features) {
       const match = title.match(pattern);
       if (match) {
         const length = parseFloat(match[1]);
-        const weight = match[2] ? parseFloat(match[2]) : length - 3;
+        let weight, drop;
         
-        if (length >= 24 && length <= 36) {
-          const drop = -(length - weight);
-          
+        if (match[2]) {
+          // We have both length and weight explicitly
+          weight = parseFloat(match[2]);
+          drop = -(length - weight);
+        } else {
+          // We only have length, use explicit drop or determine from certification
+          if (explicitDrop) {
+            const dropNum = Math.abs(parseInt(explicitDrop));
+            weight = length - dropNum;
+            drop = explicitDrop;
+          } else {
+            // Determine certification and use appropriate default
+            const certification = this.extractCertification(title, features);
+            if (certification === 'USSSA') {
+              weight = length - 10;  // USSSA typically -10
+              drop = '-10';
+            } else if (certification === 'BBCOR') {
+              weight = length - 3;   // BBCOR is always -3
+              drop = '-3';
+            } else {
+              weight = length - 8;   // USA Baseball typically -8
+              drop = '-8';
+            }
+          }
+        }
+        
+        // Validate reasonable dimensions
+        if (length >= 24 && length <= 36 && weight >= 15 && weight <= 35) {
           variants.push({
             length: length + '"',
             weight: weight + ' oz',
