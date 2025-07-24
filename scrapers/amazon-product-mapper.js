@@ -319,6 +319,53 @@ extractVariants(amazonProduct, title, features) {
     if (amazonProduct.VariationAttributes) {
       console.log(`   📏 Found VariationAttributes`);
       
+      let length = null;
+      let drop = null;
+      
+      // Look for bat_drop_ratio first (USSSA bats)
+      const dropAttr = amazonProduct.VariationAttributes.find(attr => 
+        attr.Name === 'bat_drop_ratio'
+      );
+      
+      if (dropAttr && dropAttr.Value) {
+        drop = dropAttr.Value;
+        console.log(`   🎯 Drop found: ${drop}`);
+      }
+      
+      // Look for length
+      const lengthAttr = amazonProduct.VariationAttributes.find(attr => 
+        attr.Name === 'item_length_numeric'
+      );
+      
+      if (lengthAttr && lengthAttr.Value) {
+        const lengthMatch = lengthAttr.Value.match(/(\d+(?:\.\d+)?)/);
+        if (lengthMatch) {
+          length = parseFloat(lengthMatch[1]);
+          console.log(`   🎯 Length found: ${length}"`);
+        }
+      }
+      
+      // If we have both length and drop, calculate weight
+      if (length && drop) {
+        const dropNum = parseInt(drop);
+        const weight = length - Math.abs(dropNum);
+        
+        // Validate reasonable bat dimensions
+        if (length >= 24 && length <= 36 && weight >= 15 && weight <= 35) {
+          variants.push({
+            length: length + '"',
+            weight: weight + ' oz',
+            drop: drop,
+            asin: amazonProduct.ASIN,
+            source: 'variation_attributes'
+          });
+          
+          console.log(`   ✅ Parsed variant: ${length}" / ${weight}oz / ${drop}`);
+          return variants;
+        }
+      }
+      
+      // Fallback: Look for size_name (older format)
       const sizeAttr = amazonProduct.VariationAttributes.find(attr => 
         attr.Name === 'size_name'
       );
@@ -326,7 +373,7 @@ extractVariants(amazonProduct, title, features) {
       if (sizeAttr && sizeAttr.Value) {
         console.log(`   🎯 Size attribute found: ${sizeAttr.Value}`);
         
-        // Try multiple patterns to extract size info
+        // Try multiple patterns
         const patterns = [
           /(\d+(?:\.\d+)?)["']\s*[\/\-]?\s*(\d+(?:\.\d+)?)\s*oz/i,  // 30"/27 oz
           /(\d+(?:\.\d+)?)\s*inch/i,                                // 31 Inch
@@ -373,7 +420,7 @@ extractVariants(amazonProduct, title, features) {
         const length = parseFloat(match[1]);
         const weight = match[2] ? parseFloat(match[2]) : length - 3;
         
-        if (length >= 29 && length <= 34) {
+        if (length >= 24 && length <= 36) {
           const drop = -(length - weight);
           
           variants.push({
@@ -390,12 +437,27 @@ extractVariants(amazonProduct, title, features) {
       }
     }
     
-    // FALLBACK: Default BBCOR variant
+    // FALLBACK: Default variant based on certification
     console.log(`   ⚠️ No size info found, using default`);
+    const certification = this.extractCertification(title, features);
+    const defaultLength = this.extractDefaultLength(title);
+    
+    let defaultWeight, defaultDrop;
+    if (certification === 'BBCOR') {
+      defaultWeight = (defaultLength - 3) + ' oz';
+      defaultDrop = '-3';
+    } else if (certification === 'USSSA') {
+      defaultWeight = (defaultLength - 10) + ' oz';
+      defaultDrop = '-10';
+    } else {
+      defaultWeight = (defaultLength - 8) + ' oz';
+      defaultDrop = '-8';
+    }
+    
     variants.push({
-      length: '32"',
-      weight: '29 oz',
-      drop: '-3',
+      length: defaultLength + '"',
+      weight: defaultWeight,
+      drop: defaultDrop,
       asin: amazonProduct.ASIN,
       source: 'default_fallback'
     });

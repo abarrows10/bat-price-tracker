@@ -751,44 +751,44 @@ class AmazonIntegration {
 // =============================================
 // TEST FUNCTION ALL BATS
 // =============================================
-async function testAmazonIntegration() {
-  const integration = new AmazonIntegration();
+//async function testAmazonIntegration() {
+  //const integration = new AmazonIntegration();
   
-  console.log('🧪 TESTING Amazon API Integration');
-  console.log('Running all bats...\n');
+  //console.log('🧪 TESTING Amazon API Integration');
+  //console.log('Running all bats...\n');
   
-  try {
-    await integration.run(); // Process all bats
-  } catch (error) {
-    console.error('❌ Test failed:', error);
-  }
-  }
+  //try {
+    //await integration.run(); // Process all bats
+  //} catch (error) {
+    //console.error('❌ Test failed:', error);
+  //}
+  //}
 
 // =============================================
 // TEST FUNCTION SPECIFIC BAT MODEL ID
 // =============================================
 
-//async function testAmazonIntegration() {
-  //const integration = new AmazonIntegration();
+async function testAmazonIntegration() {
+  const integration = new AmazonIntegration();
   
-  //console.log('🧪 TESTING Amazon API Integration - Bat Model ID 74');
+  console.log('🧪 TESTING Amazon API Integration - Bat Model ID 90');
   
-  //try {
-     //Get all bats and filter for ID 74
-    //const allBats = await integration.getAllBatModels();
-    //const testBat = allBats.find(bat => bat.id === 77);
+  try {
+     //Get all bats and filter for ID 90
+    const allBats = await integration.getAllBatModels();
+    const testBat = allBats.find(bat => bat.id === 90);
     
-    //if (testBat) {
-      //console.log(`Testing single bat: ${testBat.brand} ${testBat.series} ${testBat.year}\n`);
-      //await integration.processBatModel(testBat);
-    //} else {
-      //console.log('❌ Bat with ID 74 not found');
-    //}
+    if (testBat) {
+      console.log(`Testing single bat: ${testBat.brand} ${testBat.series} ${testBat.year}\n`);
+      await integration.processBatModel(testBat);
+    } else {
+      console.log('❌ Bat with ID 90 not found');
+    }
     
-  //} catch (error) {
-    //console.error('❌ Test failed:', error);
-  //}
-//}
+  } catch (error) {
+    console.error('❌ Test failed:', error);
+  }
+}
 
 // Export for use
 module.exports = AmazonIntegration;
