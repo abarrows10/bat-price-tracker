@@ -671,6 +671,30 @@ const BatPriceTracker = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Year Filter */}
+                {availableFilters.years && availableFilters.years.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-3">
+                      Year
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {availableFilters.years.map(year => (
+                        <button
+                          key={year}
+                          onClick={() => toggleFilter(selectedYears, setSelectedYears, year)}
+                          className={`px-3 py-2 text-sm rounded-lg border transition-colors ${
+                            selectedYears.includes(year)
+                              ? 'bg-blue-500 text-white border-blue-500'
+                              : 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600'
+                          }`}
+                        >
+                          {year}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 {/* Price Range - Takes up full column */}
                 <div className="md:col-span-2 lg:col-span-1">
                   <label className="block text-sm font-medium text-gray-300 mb-3">
@@ -730,8 +754,7 @@ const BatPriceTracker = () => {
                 <option value="name">Name</option>
                 <option value="price-low">Price: Low to High</option>
                 <option value="price-high">Price: High to Low</option>
-                <option value="rating">Rating</option>
-                <option value="reviews">Most Reviews</option>
+                
               </select>
             </div>
           </div>
