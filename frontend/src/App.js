@@ -275,6 +275,14 @@ const BatPriceTracker = () => {
   const availableLengths = [...new Set(bat.variants.map(v => v.length))].sort();
   const availableDropsForBat = [...new Set(bat.variants.map(v => v.drop))].sort();
   
+  // For USSSA bats, we need to manage drop selection separately
+  const [selectedDrop, setSelectedDrop] = useState(selectedVariant.drop || '-10');
+  
+  // Get available lengths for the selected drop
+  const availableLengthsForDrop = bat.certification === 'USSSA' 
+    ? [...new Set(bat.variants.filter(v => v.drop === selectedDrop).map(v => v.length))].sort()
+    : availableLengths;
+  
   const lowestPrice = Math.min(
     selectedVariant.price?.amazon || 999, 
     selectedVariant.price?.dicks || 999, 
@@ -306,55 +314,120 @@ const BatPriceTracker = () => {
           {bat.year} • Model: {bat.modelNumber}{selectedVariant.length?.replace('"', '')}
         </p>
         
-        
         <div className="text-sm text-gray-400 mb-4">
-            <div>{bat.construction} • {bat.material}</div>
-            <div>{bat.barrelSize} Barrel</div>
-            {bat.swingWeight && <div>Swing Weight: {bat.swingWeight}</div>}
+          <div>{bat.construction} • {bat.material}</div>
+          <div>{bat.barrelSize} Barrel</div>
+          {bat.swingWeight && <div>Swing Weight: {bat.swingWeight}</div>}
+        </div>
+
+        {/* USSSA: Drop Selection First */}
+        {bat.certification === 'USSSA' && availableDropsForBat.length > 1 && (
+          <div className="mb-4">
+            <p className="text-sm font-medium text-gray-300 mb-2">Drop:</p>
+            <div className="flex flex-wrap gap-2">
+              {availableDropsForBat.map(drop => {
+                const hasVariantsForDrop = bat.variants.some(v => v.drop === drop);
+                const isSelected = selectedDrop === drop;
+                
+                return (
+                  <button
+                    key={drop}
+                    onClick={() => {
+                      setSelectedDrop(drop);
+                      // Find first available variant with this drop
+                      const firstVariant = bat.variants.find(v => v.drop === drop);
+                      if (firstVariant) {
+                        selectVariant(bat.id, firstVariant);
+                      }
+                    }}
+                    disabled={!hasVariantsForDrop}
+                    className={`px-3 py-1 text-sm rounded border transition-colors ${
+                      isSelected 
+                        ? 'bg-blue-500 text-white border-blue-500' 
+                        : hasVariantsForDrop 
+                          ? 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600' 
+                          : 'bg-gray-900 text-gray-600 border-gray-800 cursor-not-allowed'
+                    }`}
+                  >
+                    {drop}
+                  </button>
+                );
+              })}
+            </div>
           </div>
+        )}
 
         {/* Length Selection */}
         <div className="mb-4">
           <p className="text-sm font-medium text-gray-300 mb-2">Length:</p>
           <div className="flex flex-wrap gap-2">
-            {availableLengths.map(length => {
-              const availableVariants = bat.variants.filter(v => v.length === length);
-              const hasStock = availableVariants.some(v => v.stock?.amazon || v.stock?.dicks || v.stock?.justbats);
-              const isSelected = selectedVariant.length === length;
-              
-              return (
-                <button
-                  key={length}
-                  onClick={() => {
-                    if (availableDropsForBat.length === 1) {
-                      // If only one drop available, select that variant
-                      const variant = bat.variants.find(v => v.length === length);
-                      if (variant) selectVariant(bat.id, variant);
-                    } else {
-                      // If multiple drops, find one that matches current drop or first available
-                      const variant = bat.variants.find(v => v.length === length && v.drop === selectedVariant.drop) ||
-                                     bat.variants.find(v => v.length === length);
-                      if (variant) selectVariant(bat.id, variant);
-                    }
-                  }}
-                  disabled={!hasStock}
-                  className={`px-3 py-1 text-sm rounded border transition-colors ${
-                    isSelected 
-                      ? 'bg-blue-500 text-white border-blue-500' 
-                      : hasStock 
-                        ? 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600' 
-                        : 'bg-gray-900 text-gray-600 border-gray-800 cursor-not-allowed'
-                  }`}
-                >
-                  {length}
-                </button>
-              );
-            })}
+            {(bat.certification === 'USSSA' ? 
+              // For USSSA: Show all possible lengths, grey out unavailable ones for selected drop
+              availableLengths.map(length => {
+                const variantForDropAndLength = bat.variants.find(v => v.length === length && v.drop === selectedDrop);
+                const hasStock = variantForDropAndLength && (variantForDropAndLength.stock?.amazon || variantForDropAndLength.stock?.dicks || variantForDropAndLength.stock?.justbats);
+                const isAvailableForDrop = !!variantForDropAndLength;
+                const isSelected = selectedVariant.length === length && selectedVariant.drop === selectedDrop;
+                
+                return (
+                  <button
+                    key={length}
+                    onClick={() => {
+                      if (variantForDropAndLength) {
+                        selectVariant(bat.id, variantForDropAndLength);
+                      }
+                    }}
+                    disabled={!isAvailableForDrop || !hasStock}
+                    className={`px-3 py-1 text-sm rounded border transition-colors ${
+                      isSelected 
+                        ? 'bg-blue-500 text-white border-blue-500' 
+                        : isAvailableForDrop && hasStock
+                          ? 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600' 
+                          : 'bg-gray-900 text-gray-600 border-gray-800 cursor-not-allowed'
+                    }`}
+                  >
+                    {length}
+                  </button>
+                );
+              }) :
+              // For BBCOR: Original logic
+              availableLengths.map(length => {
+                const availableVariants = bat.variants.filter(v => v.length === length);
+                const hasStock = availableVariants.some(v => v.stock?.amazon || v.stock?.dicks || v.stock?.justbats);
+                const isSelected = selectedVariant.length === length;
+                
+                return (
+                  <button
+                    key={length}
+                    onClick={() => {
+                      if (availableDropsForBat.length === 1) {
+                        const variant = bat.variants.find(v => v.length === length);
+                        if (variant) selectVariant(bat.id, variant);
+                      } else {
+                        const variant = bat.variants.find(v => v.length === length && v.drop === selectedVariant.drop) ||
+                                       bat.variants.find(v => v.length === length);
+                        if (variant) selectVariant(bat.id, variant);
+                      }
+                    }}
+                    disabled={!hasStock}
+                    className={`px-3 py-1 text-sm rounded border transition-colors ${
+                      isSelected 
+                        ? 'bg-blue-500 text-white border-blue-500' 
+                        : hasStock 
+                          ? 'bg-gray-700 text-gray-300 border-gray-600 hover:bg-gray-600' 
+                          : 'bg-gray-900 text-gray-600 border-gray-800 cursor-not-allowed'
+                    }`}
+                  >
+                    {length}
+                  </button>
+                );
+              })
+            )}
           </div>
         </div>
 
-        {/* Drop Selection (if multiple drops available) */}
-        {availableDropsForBat.length > 1 && (
+        {/* Drop Selection for BBCOR (if multiple drops available) */}
+        {bat.certification !== 'USSSA' && availableDropsForBat.length > 1 && (
           <div className="mb-4">
             <p className="text-sm font-medium text-gray-300 mb-2">Drop:</p>
             <div className="flex flex-wrap gap-2">
@@ -387,77 +460,77 @@ const BatPriceTracker = () => {
         )}
 
         {/* All Retailer Price Display */}
-          <div className="space-y-2">
-            {[
-              { name: 'Amazon', key: 'amazon', priority: 1 },
-              { name: 'JustBats', key: 'justbats', priority: 2 },
-              { name: "Dick's", key: 'dicks', priority: 3 }
-            ]
-            .sort((a, b) => {
-              const priceA = selectedVariant.price?.[a.key] || 999;
-              const priceB = selectedVariant.price?.[b.key] || 999;
-              
-              if (priceA !== priceB) {
-                return priceA - priceB; // Sort by price (lowest first)
-              }
-              return a.priority - b.priority; // If same price, sort by priority
-            })
-            .map(retailer => {
-            const price = selectedVariant.price?.[retailer.key];
-            const inStock = selectedVariant.stock?.[retailer.key];
-            const isBest = retailer.key === bestRetailer && price === lowestPrice;
+        <div className="space-y-2">
+          {[
+            { name: 'Amazon', key: 'amazon', priority: 1 },
+            { name: 'JustBats', key: 'justbats', priority: 2 },
+            { name: "Dick's", key: 'dicks', priority: 3 }
+          ]
+          .sort((a, b) => {
+            const priceA = selectedVariant.price?.[a.key] || 999;
+            const priceB = selectedVariant.price?.[b.key] || 999;
             
-            return (
-              <div 
-                key={retailer.key}
-                className={`flex justify-between items-center p-3 rounded border transition-colors cursor-pointer hover:bg-gray-700 ${
-                  isBest ? 'border-green-500 bg-green-900/30' : 'border-gray-600 bg-gray-700/50'
-                } ${!inStock ? 'opacity-60' : ''}`}
-                onClick={() => {
-                  let url = '#';
-                  if (retailer.key === 'amazon') {
-                    if (bat.amazon_affiliate_url) {
-                      url = bat.amazon_affiliate_url;
-                    } else {
-                      const searchQuery = encodeURIComponent(`${bat.brand} ${bat.series} ${bat.certification} baseball bat`);
-                      url = `https://www.amazon.com/s?k=${searchQuery}&tag=battracker-20`;
-                    }
-                  } else if (retailer.key === 'justbats') {
-                    url = bat.justbats_product_url || '#';
-                  } else if (retailer.key === 'dicks') {
-                    url = bat.dicks_product_url || '#';
+            if (priceA !== priceB) {
+              return priceA - priceB; // Sort by price (lowest first)
+            }
+            return a.priority - b.priority; // If same price, sort by priority
+          })
+          .map(retailer => {
+          const price = selectedVariant.price?.[retailer.key];
+          const inStock = selectedVariant.stock?.[retailer.key];
+          const isBest = retailer.key === bestRetailer && price === lowestPrice;
+          
+          return (
+            <div 
+              key={retailer.key}
+              className={`flex justify-between items-center p-3 rounded border transition-colors cursor-pointer hover:bg-gray-700 ${
+                isBest ? 'border-green-500 bg-green-900/30' : 'border-gray-600 bg-gray-700/50'
+              } ${!inStock ? 'opacity-60' : ''}`}
+              onClick={() => {
+                let url = '#';
+                if (retailer.key === 'amazon') {
+                  if (bat.amazon_affiliate_url) {
+                    url = bat.amazon_affiliate_url;
+                  } else {
+                    const searchQuery = encodeURIComponent(`${bat.brand} ${bat.series} ${bat.certification} baseball bat`);
+                    url = `https://www.amazon.com/s?k=${searchQuery}&tag=battracker-20`;
                   }
-                  
-                  if (url !== '#') {
-                    window.open(url, '_blank');
-                  }
-                }}
-              >
-                <div className="flex items-center">
-                  <span className="text-sm font-medium text-gray-200">{retailer.name}</span>
-                  {!inStock && (
-                    <span className="ml-2 text-xs text-red-400 bg-red-900/50 px-2 py-1 rounded">
-                      Out of Stock
-                    </span>
-                  )}
-                  {isBest && inStock && (
-                    <span className="ml-2 text-sm font-bold text-green-400 bg-green-900/50 px-2 py-1 rounded whitespace-nowrap">
-                      BEST
-                    </span>
-                  )}
-                </div>
-                <div className="flex items-center">
-                  <span className={`font-semibold text-lg ${isBest && inStock ? 'text-green-400' : 'text-gray-200'}`}>
-                    {price ? `$${price}` : 'N/A'}
+                } else if (retailer.key === 'justbats') {
+                  url = bat.justbats_product_url || '#';
+                } else if (retailer.key === 'dicks') {
+                  url = bat.dicks_product_url || '#';
+                }
+                
+                if (url !== '#') {
+                  window.open(url, '_blank');
+                }
+              }}
+            >
+              <div className="flex items-center">
+                <span className="text-sm font-medium text-gray-200">{retailer.name}</span>
+                {!inStock && (
+                  <span className="ml-2 text-xs text-red-400 bg-red-900/50 px-2 py-1 rounded">
+                    Out of Stock
                   </span>
-                  <ExternalLink className="w-4 h-4 ml-2 text-gray-400" />
-                </div>
+                )}
+                {isBest && inStock && (
+                  <span className="ml-2 text-sm font-bold text-green-400 bg-green-900/50 px-2 py-1 rounded whitespace-nowrap">
+                    BEST
+                  </span>
+                )}
               </div>
-            );
-          })}
-        </div>
+              <div className="flex items-center">
+                <span className={`font-semibold text-lg ${isBest && inStock ? 'text-green-400' : 'text-gray-200'}`}>
+                  {price ? `$${price}` : 'N/A'}
+                </span>
+                <ExternalLink className="w-4 h-4 ml-2 text-gray-400" />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
+  </div>
   );
 };
 
