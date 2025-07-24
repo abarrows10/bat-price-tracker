@@ -163,14 +163,23 @@ class AmazonIntegration {
       
       // Combine main product with variations
       const allProducts = [];
-      if (variations && variations.length > 0) {
-        // If we have variations, use only those (they have size info)
-        allProducts.push(...variations);
-        console.log(`   ✅ Found ${variations.length} size variants`);
-      } else if (products && products.length > 0) {
-        // Only use main product if no variations exist
+
+      // Add the main product first (if it exists)
+      if (products && products.length > 0) {
         allProducts.push(...products);
       }
+
+      // Add variations (but check for duplicates)
+      if (variations && variations.length > 0) {
+        variations.forEach(variation => {
+          // Only add if not already in allProducts
+          if (!allProducts.find(p => p.ASIN === variation.ASIN)) {
+            allProducts.push(variation);
+          }
+        });
+      }
+
+      console.log(`   ✅ Found ${allProducts.length} total products (main + variations)`);
       
       if (allProducts.length > 0) {
         console.log(`   ✅ Total products found: ${allProducts.length} (main + variations)`);
