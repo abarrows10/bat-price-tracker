@@ -249,35 +249,57 @@ class AmazonApiClient {
     }
   }
 
-  // Get variations of a product
-  async getVariations(asin) {
-    const payload = {
-      ASIN: asin,
-      Resources: [
-        'ItemInfo.Title',
-        'Offers.Listings.Price'
-      ],
-      PartnerTag: this.partnerTag,
-      PartnerType: 'Associates',
-      Marketplace: this.marketplace
-    };
+  // Get variations of a product with pagination support
+async getVariations(asin) {
+  let allVariations = [];
+  let currentPage = 1;
+  
+  try {
+    console.log(`🔍 Amazon API: Getting variations for ASIN: ${asin}`);
+    
+    while (true) {
+      const payload = {
+        ASIN: asin,
+        Resources: [
+          'ItemInfo.Title',
+          'Offers.Listings.Price',
+          'VariationAttributes'
+        ],
+        PartnerTag: this.partnerTag,
+        PartnerType: 'Associates',
+        Marketplace: this.marketplace,
+        ItemPage: currentPage
+      };
 
-    try {
-      console.log(`🔍 Amazon API: Getting variations for ASIN: ${asin}`);
       const response = await this.makeRequest('GetVariations', payload);
       
       if (response.VariationsResult && response.VariationsResult.Items) {
-        console.log(`✅ Found ${response.VariationsResult.Items.length} variations`);
-        return response.VariationsResult.Items;
+        console.log(`✅ Found ${response.VariationsResult.Items.length} variations on page ${currentPage}`);
+        allVariations.push(...response.VariationsResult.Items);
+        
+        // Check if there are more pages
+        const variationSummary = response.VariationsResult.VariationSummary;
+        if (variationSummary && currentPage < variationSummary.PageCount) {
+          currentPage++;
+          // Add small delay between requests
+          await new Promise(resolve => setTimeout(resolve, 500));
+        } else {
+          break;
+        }
       } else {
-        console.log(`⚠️  No variations found for ASIN: ${asin}`);
-        return [];
+        console.log(`⚠️  No variations found for ASIN: ${asin} on page ${currentPage}`);
+        break;
       }
-    } catch (error) {
-      console.error(`❌ Amazon API getVariations failed for ASIN ${asin}:`, error.message);
-      return [];
     }
+    
+    console.log(`✅ Total variations collected: ${allVariations.length}`);
+    return allVariations;
+    
+  } catch (error) {
+    console.error(`❌ Amazon API getVariations failed for ASIN ${asin}:`, error.message);
+    return allVariations; // Return what we have so far
   }
+}
 
   // Helper method to build baseball bat search terms
   buildBatSearchTerms(batModel) {
