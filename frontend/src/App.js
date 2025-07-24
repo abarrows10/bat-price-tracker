@@ -277,7 +277,11 @@ const BatPriceTracker = () => {
   if (!selectedVariant || !bat.variants) return null;
   
   const availableLengths = [...new Set(bat.variants.map(v => v.length))].sort();
-  const availableDropsForBat = [...new Set(bat.variants.map(v => v.drop))].sort();
+  const availableDropsForBat = [...new Set(bat.variants.map(v => v.drop))].sort((a, b) => {
+    // Custom sort for USSSA drops: -10, -8, -5
+    const dropOrder = {'-10': 1, '-8': 2, '-5': 3};
+    return (dropOrder[a] || 999) - (dropOrder[b] || 999);
+  });
   
   // Get available lengths for the selected drop
   const availableLengthsForDrop = bat.certification === 'USSSA' 
