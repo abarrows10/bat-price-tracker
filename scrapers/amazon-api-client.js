@@ -263,7 +263,6 @@ async getVariations(asin) {
         Resources: [
           'ItemInfo.Title',
           'Offers.Listings.Price',
-          'VariationAttributes'
         ],
         PartnerTag: this.partnerTag,
         PartnerType: 'Associates',
