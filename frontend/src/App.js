@@ -270,13 +270,14 @@ const BatPriceTracker = () => {
 
   const BatCard = ({ bat }) => {
   const selectedVariant = selectedVariants[bat.id];
+  
+  // For USSSA bats, we need to manage drop selection separately
+  const [selectedDrop, setSelectedDrop] = useState(selectedVariant?.drop || '-10');
+  
   if (!selectedVariant || !bat.variants) return null;
   
   const availableLengths = [...new Set(bat.variants.map(v => v.length))].sort();
   const availableDropsForBat = [...new Set(bat.variants.map(v => v.drop))].sort();
-  
-  // For USSSA bats, we need to manage drop selection separately
-  const [selectedDrop, setSelectedDrop] = useState(selectedVariant.drop || '-10');
   
   // Get available lengths for the selected drop
   const availableLengthsForDrop = bat.certification === 'USSSA' 
