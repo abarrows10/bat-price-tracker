@@ -262,7 +262,7 @@ async getVariations(asin) {
         ASIN: asin,
         Resources: [
           'ItemInfo.Title',
-          'Offers.Listings.Price',
+          'Offers.Listings.Price'
         ],
         PartnerTag: this.partnerTag,
         PartnerType: 'Associates',
@@ -291,8 +291,13 @@ async getVariations(asin) {
       }
     }
     
-    console.log(`✅ Total variations collected: ${allVariations.length}`);
-    return allVariations;
+    // Deduplicate variations by ASIN
+    const uniqueVariations = allVariations.filter((variation, index, self) => 
+      index === self.findIndex(v => v.ASIN === variation.ASIN)
+    );
+    
+    console.log(`✅ Total unique variations: ${uniqueVariations.length}`);
+    return uniqueVariations;
     
   } catch (error) {
     console.error(`❌ Amazon API getVariations failed for ASIN ${asin}:`, error.message);
