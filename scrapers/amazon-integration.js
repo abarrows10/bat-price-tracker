@@ -79,18 +79,26 @@ class AmazonIntegration {
       console.log('\n📊 Fetching bat models from database...');
       
       const { data: batModels, error } = await supabase
-        .from('bat_models')
-        .select(`
-          *,
-          bat_variants (
-            *,
-            prices (
-              *,
-              retailers (id, name)
-            )
-          )
-        `)
-        .order('id');
+ .from('bat_models')
+ .select(`
+   *,
+   bat_variants!inner (
+     id,
+     bat_model_id,
+     length,
+     weight,
+     drop,
+     release_date,
+     discontinued,
+     created_at,
+     asin,
+     prices (
+       *,
+       retailers (id, name)
+     )
+   )
+ `)
+ .order('id');
 
       if (error) throw error;
 
@@ -113,6 +121,7 @@ class AmazonIntegration {
           length: variant.length,
           weight: variant.weight,
           drop: variant.drop,
+          asin: variant.asin,
           prices: variant.prices.map(price => ({
             id: price.id,
             retailer_id: price.retailer_id,
@@ -142,32 +151,44 @@ class AmazonIntegration {
     
     // Check if we have stored variant ASINs
     const variantASINs = batModel.variants
-      .map(v => v.asin)
-      .filter(asin => asin && asin.trim().length > 0);
+      .filter(v => v.asin && v.asin.trim() !== '')
+      .map(v => v.asin);
     
-    if (variantASINs.length > 0) {
-      // PRIORITY 1: Use stored variant ASINs (existing bats)
-      console.log(`   📌 Using ${variantASINs.length} stored variant ASINs`);
-      
-      const products = await this.apiClient.getItems(variantASINs);
+      console.log(`   🔍 Checking for stored ASINs:`, batModel.variants.map(v => ({ id: v.id, asin: v.asin })));
 
-      if (products && products.length > 0) {
-        console.log('\n🐛 DEBUG: All product titles:');
-        products.forEach((product, i) => {
-          console.log(`  [${i}] ${product.ASIN}: ${product.ItemInfo?.Title?.DisplayValue}`);
-        });
-      }
-      
-      if (products && products.length > 0) {
-        console.log(`   ✅ Retrieved ${products.length} products from stored ASINs`);
-        return products.map(product => ({
-          ...this.mapper.scoreProductMatch(product, batModel),
-          product: product
-        }));
-      } else {
-        console.log(`   ⚠️  Stored ASINs returned no data - falling back to discovery`);
-      }
+    if (variantASINs.length > 0) {
+  // PRIORITY 1: Use stored variant ASINs (existing bats)
+  console.log(`   📌 Using ${variantASINs.length} stored variant ASINs`);
+  
+  // Batch ASINs into chunks of 10 (Amazon API limit)
+  const chunks = [];
+  for (let i = 0; i < variantASINs.length; i += 10) {
+    chunks.push(variantASINs.slice(i, i + 10));
+  }
+  
+  let allProducts = [];
+  for (const chunk of chunks) {
+    const products = await this.apiClient.getItems(chunk);
+    if (products && products.length > 0) {
+      allProducts.push(...products);
     }
+  }
+  
+  if (allProducts.length > 0) {
+    console.log('\n🐛 DEBUG: All stored ASIN titles:');
+    allProducts.forEach((product, i) => {
+      console.log(`  [${i}] ${product.ASIN}: ${product.ItemInfo?.Title?.DisplayValue}`);
+    });
+    
+    console.log(`   ✅ Retrieved ${allProducts.length} products from stored ASINs`);
+    return allProducts.map(product => ({
+      ...this.mapper.scoreProductMatch(product, batModel),
+      product: product
+    }));
+  } else {
+    console.log(`   ⚠️  Stored ASINs returned no data - falling back to discovery`);
+  }
+}
     
     // PRIORITY 2: Use seed ASIN for discovery (new bats)
     if (batModel.amazon_asin) {
@@ -199,7 +220,7 @@ class AmazonIntegration {
         allProducts.forEach((product, i) => {
           console.log(`  [${i}] ${product.ASIN}: ${product.ItemInfo?.Title?.DisplayValue}`);
         });
-        
+
         // IMPORTANT: Store discovered ASINs for future use
         await this.storeVariantASINs(batModel, allProducts);
         
