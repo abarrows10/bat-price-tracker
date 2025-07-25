@@ -140,9 +140,31 @@ class AmazonIntegration {
   try {
     console.log(`\n🔍 Processing Amazon data for: ${batModel.brand} ${batModel.series} ${batModel.year}`);
     
-    // Priority 1: Use existing ASIN with GetItems + GetVariations (much more reliable)
+    // Check if we have stored variant ASINs
+    const variantASINs = batModel.variants
+      .map(v => v.asin)
+      .filter(asin => asin && asin.trim().length > 0);
+    
+    if (variantASINs.length > 0) {
+      // PRIORITY 1: Use stored variant ASINs (existing bats)
+      console.log(`   📌 Using ${variantASINs.length} stored variant ASINs`);
+      
+      const products = await this.apiClient.getItems(variantASINs);
+      
+      if (products && products.length > 0) {
+        console.log(`   ✅ Retrieved ${products.length} products from stored ASINs`);
+        return products.map(product => ({
+          ...this.mapper.scoreProductMatch(product, batModel),
+          product: product
+        }));
+      } else {
+        console.log(`   ⚠️  Stored ASINs returned no data - falling back to discovery`);
+      }
+    }
+    
+    // PRIORITY 2: Use seed ASIN for discovery (new bats)
     if (batModel.amazon_asin) {
-      console.log(`   📌 Using existing ASIN: ${batModel.amazon_asin}`);
+      console.log(`   🔍 Discovering variants from seed ASIN: ${batModel.amazon_asin}`);
       
       // Get the main product
       const products = await this.apiClient.getItems([batModel.amazon_asin]);
@@ -151,50 +173,36 @@ class AmazonIntegration {
       console.log(`   🔍 Looking for size variations...`);
       const variations = await this.apiClient.getVariations(batModel.amazon_asin);
       
-      // DEBUG: Log the raw structure
-      if (variations && variations.length > 0) {
-        console.log('\n🐛 DEBUG: All variation titles:');
-        variations.forEach((variation, i) => {
-          console.log(`  [${i}] ${variation.ASIN}: ${variation.ItemInfo?.Title?.DisplayValue}`);
-        });
-      } else {
-        console.log('🐛 DEBUG: No variations found');
-      }
-      
       // Combine main product with variations
       const allProducts = [];
-
-      // Add the main product first (if it exists)
       if (products && products.length > 0) {
         allProducts.push(...products);
       }
-
-      // Add variations (but check for duplicates)
       if (variations && variations.length > 0) {
         variations.forEach(variation => {
-          // Only add if not already in allProducts
           if (!allProducts.find(p => p.ASIN === variation.ASIN)) {
             allProducts.push(variation);
           }
         });
       }
 
-      console.log(`   ✅ Found ${allProducts.length} total products (main + variations)`);
-      
       if (allProducts.length > 0) {
-        console.log(`   ✅ Total products found: ${allProducts.length} (main + variations)`);
+        console.log(`   ✅ Found ${allProducts.length} total products (main + variations)`);
+        
+        // IMPORTANT: Store discovered ASINs for future use
+        await this.storeVariantASINs(batModel, allProducts);
+        
         return allProducts.map(product => ({
           ...this.mapper.scoreProductMatch(product, batModel),
           product: product
         }));
-      } else {
-        console.log(`   ⚠️  ASIN ${batModel.amazon_asin} returned no data - falling back to search`);
       }
     }
     
-    // Priority 2: Search if no ASIN or GetItems failed
-    console.log(`   🔎 Searching Amazon (no ASIN available)`);
+    // PRIORITY 3: Search fallback
+    console.log(`   🔎 No ASINs available - falling back to search`);
     return await this.performSearchFallback(batModel);
+    
   } catch (error) {
     console.error(`❌ Error processing ${batModel.brand} ${batModel.series}:`, error.message);
     return [];
@@ -275,21 +283,43 @@ class AmazonIntegration {
   }
 
   // Store newly discovered ASINs for future GetItems calls
-  async storeDiscoveredAsin(batModelId, asin) {
-    try {
-      await supabase
-        .from('bat_models')
-        .update({ 
-          amazon_asin: asin,
-          amazon_product_url: `https://www.amazon.com/dp/${asin}?tag=battracker-20`
-        })
-        .eq('id', batModelId);
+  async storeVariantASINs(batModel, amazonProducts) {
+  try {
+    console.log(`   💾 Storing variant ASINs for future use...`);
+    
+    for (const product of amazonProducts) {
+      const extractedInfo = this.mapper.extractBatInfo(product);
+      const variants = extractedInfo.variants || [];
       
-      console.log(`   📌 Stored ASIN ${asin} for future GetItems calls`);
-    } catch (error) {
-      console.log(`   ⚠️  Failed to store ASIN: ${error.message}`);
+      for (const variant of variants) {
+        // Find matching database variant by length, drop, and weight
+        const matchingVariant = batModel.variants.find(dbVariant => {
+          const lengthMatch = dbVariant.length === variant.length;
+          const dropMatch = dbVariant.drop === variant.drop;
+          // Optional weight match (in case weights differ slightly)
+          return lengthMatch && dropMatch;
+        });
+        
+        if (matchingVariant && !matchingVariant.asin) {
+          // Store the ASIN for this variant
+          const { error } = await supabase
+            .from('bat_variants')
+            .update({ asin: product.ASIN })
+            .eq('id', matchingVariant.id);
+          
+          if (!error) {
+            console.log(`     ✅ Stored ASIN ${product.ASIN} for ${variant.length} ${variant.drop}`);
+          } else {
+            console.log(`     ❌ Error storing ASIN: ${error.message}`);
+          }
+        }
+      }
     }
+    
+  } catch (error) {
+    console.error(`   ❌ Error storing variant ASINs: ${error.message}`);
   }
+}
 
   // =============================================
   // DATABASE UPDATE FUNCTIONS
