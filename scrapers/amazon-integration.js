@@ -92,6 +92,7 @@ class AmazonIntegration {
      discontinued,
      created_at,
      asin,
+     amazon_product_url,
      prices (
        *,
        retailers (id, name)
@@ -122,6 +123,7 @@ class AmazonIntegration {
           weight: variant.weight,
           drop: variant.drop,
           asin: variant.asin,
+          amazonUrl: variant.amazon_product_url,
           prices: variant.prices.map(price => ({
             id: price.id,
             retailer_id: price.retailer_id,
@@ -336,7 +338,10 @@ class AmazonIntegration {
           // Store the ASIN for this variant
           const { error } = await supabase
             .from('bat_variants')
-            .update({ asin: product.ASIN })
+            .update({ 
+              asin: product.ASIN,
+              amazon_product_url: `https://www.amazon.com/dp/${product.ASIN}?tag=battracker-20`
+            })
             .eq('id', matchingVariant.id);
           
           if (!error) {
@@ -842,18 +847,18 @@ class AmazonIntegration {
 async function testAmazonIntegration() {
   const integration = new AmazonIntegration();
   
-  console.log('🧪 TESTING Amazon API Integration - Bat Model ID 90');
+  console.log('🧪 TESTING Amazon API Integration - Bat Model ID 62');
   
   try {
-     //Get all bats and filter for ID 90
+     //Get all bats and filter for ID 62
     const allBats = await integration.getAllBatModels();
-    const testBat = allBats.find(bat => bat.id === 90);
+    const testBat = allBats.find(bat => bat.id === 62);
     
     if (testBat) {
       console.log(`Testing single bat: ${testBat.brand} ${testBat.series} ${testBat.year}\n`);
       await integration.processBatModel(testBat);
     } else {
-      console.log('❌ Bat with ID 90 not found');
+      console.log('❌ Bat with ID 62 not found');
     }
     
   } catch (error) {

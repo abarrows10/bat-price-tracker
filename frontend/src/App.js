@@ -494,12 +494,7 @@ const BatPriceTracker = () => {
               onClick={() => {
                 let url = '#';
                 if (retailer.key === 'amazon') {
-                  if (bat.amazon_affiliate_url) {
-                    url = bat.amazon_affiliate_url;
-                  } else {
-                    const searchQuery = encodeURIComponent(`${bat.brand} ${bat.series} ${bat.certification} baseball bat`);
-                    url = `https://www.amazon.com/s?k=${searchQuery}&tag=battracker-20`;
-                  }
+                  url = selectedVariant.amazonUrl || `https://www.amazon.com/s?k=${encodeURIComponent(`${bat.brand} ${bat.series} ${bat.certification} baseball bat`)}&tag=battracker-20`;
                 } else if (retailer.key === 'justbats') {
                   url = bat.justbats_product_url || '#';
                 } else if (retailer.key === 'dicks') {
