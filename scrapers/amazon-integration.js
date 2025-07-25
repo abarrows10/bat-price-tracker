@@ -150,6 +150,13 @@ class AmazonIntegration {
       console.log(`   📌 Using ${variantASINs.length} stored variant ASINs`);
       
       const products = await this.apiClient.getItems(variantASINs);
+
+      if (products && products.length > 0) {
+        console.log('\n🐛 DEBUG: All product titles:');
+        products.forEach((product, i) => {
+          console.log(`  [${i}] ${product.ASIN}: ${product.ItemInfo?.Title?.DisplayValue}`);
+        });
+      }
       
       if (products && products.length > 0) {
         console.log(`   ✅ Retrieved ${products.length} products from stored ASINs`);
@@ -188,6 +195,10 @@ class AmazonIntegration {
 
       if (allProducts.length > 0) {
         console.log(`   ✅ Found ${allProducts.length} total products (main + variations)`);
+        console.log('\n🐛 DEBUG: All variation titles:');
+        allProducts.forEach((product, i) => {
+          console.log(`  [${i}] ${product.ASIN}: ${product.ItemInfo?.Title?.DisplayValue}`);
+        });
         
         // IMPORTANT: Store discovered ASINs for future use
         await this.storeVariantASINs(batModel, allProducts);
