@@ -270,6 +270,7 @@ const BatPriceTracker = () => {
 
   const BatCard = ({ bat }) => {
   const selectedVariant = selectedVariants[bat.id];
+  console.log('BatCard selectedVariant:', selectedVariant);
   
   // For USSSA bats, we need to manage drop selection separately
   const [selectedDrop, setSelectedDrop] = useState(selectedVariant?.drop || '-10');
@@ -492,6 +493,7 @@ const BatPriceTracker = () => {
                 isBest ? 'border-green-500 bg-green-900/30' : 'border-gray-600 bg-gray-700/50'
               } ${!inStock ? 'opacity-60' : ''}`}
               onClick={() => {
+                console.log('selectedVariant:', selectedVariant);
                 let url = '#';
                 if (retailer.key === 'amazon') {
                   url = selectedVariant.amazonUrl || `https://www.amazon.com/s?k=${encodeURIComponent(`${bat.brand} ${bat.series} ${bat.certification} baseball bat`)}&tag=battracker-20`;
