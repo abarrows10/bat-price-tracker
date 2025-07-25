@@ -249,54 +249,90 @@ class AmazonApiClient {
     }
   }
 
-  // Get variations of a product with pagination support
+  // Get variations of a product with proper pagination support
 async getVariations(asin) {
   let allVariations = [];
-  let currentPage = 1;
   
   try {
     console.log(`🔍 Amazon API: Getting variations for ASIN: ${asin}`);
     
-    while (true) {
-      const payload = {
-        ASIN: asin,
-        Resources: [
-          'ItemInfo.Title',
-          'Offers.Listings.Price'
-        ],
-        PartnerTag: this.partnerTag,
-        PartnerType: 'Associates',
-        Marketplace: this.marketplace,
-        ItemPage: currentPage
-      };
+    // Get page 1 first to determine total pages
+    const page1Payload = {
+      ASIN: asin,
+      Resources: [
+        'ItemInfo.Title',
+        'Offers.Listings.Price'
+      ],
+      PartnerTag: this.partnerTag,
+      PartnerType: 'Associates',
+      Marketplace: this.marketplace
+      // No VariationPage parameter = page 1 by default
+    };
 
-      const response = await this.makeRequest('GetVariations', payload);
-      
-      if (response.VariationsResult && response.VariationsResult.Items) {
-        console.log(`✅ Found ${response.VariationsResult.Items.length} variations on page ${currentPage}`);
-        allVariations.push(...response.VariationsResult.Items);
+    const page1Response = await this.makeRequest('GetVariations', page1Payload);
+    
+    if (!page1Response.VariationsResult) {
+      console.log(`⚠️  No variations found for ASIN: ${asin}`);
+      return [];
+    }
+    
+    // Add page 1 variations
+    if (page1Response.VariationsResult.Items) {
+      console.log(`✅ Found ${page1Response.VariationsResult.Items.length} variations on page 1`);
+      allVariations.push(...page1Response.VariationsResult.Items);
+    }
+    
+    // Check if there are more pages
+    const variationSummary = page1Response.VariationsResult.VariationSummary;
+    const totalPages = variationSummary?.PageCount || 1;
+    
+    console.log(`📊 Total pages: ${totalPages}, Total variations expected: ${variationSummary?.VariationCount || 'unknown'}`);
+    
+    // Get remaining pages if they exist
+    if (totalPages > 1) {
+      for (let page = 2; page <= totalPages; page++) {
+        console.log(`🔍 Getting variations page ${page}...`);
         
-        // Check if there are more pages
-        const variationSummary = response.VariationsResult.VariationSummary;
-        if (variationSummary && currentPage < variationSummary.PageCount) {
-          currentPage++;
-          // Add small delay between requests
-          await new Promise(resolve => setTimeout(resolve, 500));
+        const pagePayload = {
+          ASIN: asin,
+          Resources: [
+            'ItemInfo.Title',
+            'Offers.Listings.Price'
+          ],
+          VariationPage: page,  // Use VariationPage instead of ItemPage
+          PartnerTag: this.partnerTag,
+          PartnerType: 'Associates',
+          Marketplace: this.marketplace
+        };
+
+        const pageResponse = await this.makeRequest('GetVariations', pagePayload);
+        
+        if (pageResponse.VariationsResult && pageResponse.VariationsResult.Items) {
+          console.log(`✅ Found ${pageResponse.VariationsResult.Items.length} variations on page ${page}`);
+          allVariations.push(...pageResponse.VariationsResult.Items);
         } else {
-          break;
+          console.log(`⚠️  No variations found on page ${page}`);
         }
-      } else {
-        console.log(`⚠️  No variations found for ASIN: ${asin} on page ${currentPage}`);
-        break;
+        
+        // Rate limiting delay between requests
+        if (page < totalPages) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
       }
     }
     
-    // Deduplicate variations by ASIN
-    const uniqueVariations = allVariations.filter((variation, index, self) => 
-      index === self.findIndex(v => v.ASIN === variation.ASIN)
-    );
+    // Enhanced deduplication - remove duplicates by ASIN
+    const uniqueVariations = [];
+    const seenASINs = new Set();
     
-    console.log(`✅ Total unique variations: ${uniqueVariations.length}`);
+    for (const variation of allVariations) {
+      if (variation.ASIN && !seenASINs.has(variation.ASIN)) {
+        seenASINs.add(variation.ASIN);
+        uniqueVariations.push(variation);
+      }
+    }
+    
+    console.log(`✅ Total unique variations: ${uniqueVariations.length} (removed ${allVariations.length - uniqueVariations.length} duplicates)`);
     return uniqueVariations;
     
   } catch (error) {
