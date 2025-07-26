@@ -271,7 +271,8 @@ const BatPriceTracker = () => {
   const BatCard = ({ bat }) => {
   const selectedVariant = selectedVariants[bat.id];
   console.log('BatCard selectedVariant:', selectedVariant);
-  
+  console.log('Raw bat variants:', bat.variants);
+
   // For USSSA bats, we need to manage drop selection separately
   const [selectedDrop, setSelectedDrop] = useState(selectedVariant?.drop || '-10');
   
@@ -496,7 +497,9 @@ const BatPriceTracker = () => {
                 console.log('selectedVariant:', selectedVariant);
                 let url = '#';
                 if (retailer.key === 'amazon') {
-                  url = selectedVariant.amazonUrl || `https://www.amazon.com/s?k=${encodeURIComponent(`${bat.brand} ${bat.series} ${bat.certification} baseball bat`)}&tag=battracker-20`;
+                  url = selectedVariant.asin 
+                    ? `https://www.amazon.com/dp/${selectedVariant.asin}?tag=battracker-20`
+                    : `https://www.amazon.com/s?k=${encodeURIComponent(`${bat.brand} ${bat.series} ${bat.certification} baseball bat`)}&tag=battracker-20`;
                 } else if (retailer.key === 'justbats') {
                   url = bat.justbats_product_url || '#';
                 } else if (retailer.key === 'dicks') {
