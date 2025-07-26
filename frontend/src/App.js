@@ -494,7 +494,8 @@ const BatPriceTracker = () => {
                 isBest ? 'border-green-500 bg-green-900/30' : 'border-gray-600 bg-gray-700/50'
               } ${!inStock ? 'opacity-60' : ''}`}
               onClick={() => {
-                console.log('selectedVariant:', selectedVariant);
+                console.log('selectedVariant ASIN:', selectedVariant.asin);
+                console.log('Full selectedVariant:', selectedVariant);
                 let url = '#';
                 if (retailer.key === 'amazon') {
                   url = selectedVariant.asin 

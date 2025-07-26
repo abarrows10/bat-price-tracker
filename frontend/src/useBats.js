@@ -55,6 +55,7 @@ export const useBats = () => {
                 return {
                   length: variant.length,
                   drop: variant.drop,
+                  asin: variant.asin,
                   price: priceObj,
                   stock: stockObj
                 };
