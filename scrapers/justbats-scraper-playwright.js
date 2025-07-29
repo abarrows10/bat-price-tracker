@@ -1182,19 +1182,19 @@ async function testJustBatsUpdater() {
    // ===== CHOOSE ONE: COMMENT OUT THE OTHER =====
    
    // OPTION 1: Test single bat
-   console.log('Testing single bat model...\n');
-   const allBats = await scraper.getAllBatModels();
-   const testBat = allBats.find(bat => bat.id === 90); // Change ID as needed
-   if (testBat) {
-     console.log(`Testing single bat: ${testBat.brand} ${testBat.series} ${testBat.year}\n`);
-     await scraper.processBatModel(testBat);
-   } else {
-     console.log('❌ Bat with specified ID 90 not found');
-   }
+  //  console.log('Testing single bat model...\n');
+  //  const allBats = await scraper.getAllBatModels();
+  //  const testBat = allBats.find(bat => bat.id === 90); // Change ID as needed
+  //  if (testBat) {
+  //    console.log(`Testing single bat: ${testBat.brand} ${testBat.series} ${testBat.year}\n`);
+  //    await scraper.processBatModel(testBat);
+  //  } else {
+  //    console.log('❌ Bat with specified ID 90 not found');
+  //  }
    
    // OPTION 2: Production - all bats
-   // console.log('Running all bat models...\n');
-   // await scraper.runPriceUpdates(); // Process all bats
+   console.log('Running all bat models...\n');
+   await scraper.runPriceUpdates(); // Process all bats
    
  } catch (error) {
    console.error('❌ Test failed:', error);

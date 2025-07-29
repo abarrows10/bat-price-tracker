@@ -911,31 +911,31 @@ async updateExistingBatPrices(databaseBat, searchResults) {
 // =============================================
 // TEST FUNCTION ALL BATS
 // =============================================
-//async function testAmazonIntegration() {
-  //const integration = new AmazonIntegration();
+async function testAmazonIntegration() {
+  const integration = new AmazonIntegration();
   
-  //console.log('🧪 TESTING Amazon API Integration');
-  //console.log('Running all bats...\n');
+  console.log('🧪 TESTING Amazon API Integration');
+  console.log('Running all bats...\n');
   
-  //try {
-    //await integration.run(); // Process all bats
-  //} catch (error) {
-    //console.error('❌ Test failed:', error);
-  //}
-  //}
+  try {
+    await integration.run(); // Process all bats
+  } catch (error) {
+    console.error('❌ Test failed:', error);
+  }
+  }
 
 // =============================================
 // TEST FUNCTION SPECIFIC BAT MODEL ID
 // =============================================
 
-async function testAmazonIntegration() {
- const integration = new AmazonIntegration();
+// async function testAmazonIntegration() {
+//  const integration = new AmazonIntegration();
  
- console.log('🧪 TESTING Amazon API Integration');
+//  console.log('🧪 TESTING Amazon API Integration');
  
- try {
-   const allBats = await integration.getAllBatModels();
-   console.log('Available bat IDs:', allBats.map(bat => bat.id));
+//  try {
+//    const allBats = await integration.getAllBatModels();
+//    console.log('Available bat IDs:', allBats.map(bat => bat.id));
    
    // ===== CHOOSE ONE: COMMENT OUT THE OTHER =====
    
@@ -949,16 +949,16 @@ async function testAmazonIntegration() {
   //  }
    
    // OPTION 2: Test multiple bats (Pool Party vs Standard)
-   const testBats = allBats.filter(bat => bat.id === 91 || bat.id === 92);
-   for (const testBat of testBats) {
-     console.log(`\nTesting bat: ${testBat.brand} ${testBat.series} ${testBat.year} (ID: ${testBat.id})`);
-     await integration.processBatModel(testBat);
-   }
+//    const testBats = allBats.filter(bat => bat.id === 91 || bat.id === 92);
+//    for (const testBat of testBats) {
+//      console.log(`\nTesting bat: ${testBat.brand} ${testBat.series} ${testBat.year} (ID: ${testBat.id})`);
+//      await integration.processBatModel(testBat);
+//    }
    
- } catch (error) {
-   console.error('❌ Test failed:', error);
- }
-}
+//  } catch (error) {
+//    console.error('❌ Test failed:', error);
+//  }
+// }
 
 // Export for use
 module.exports = AmazonIntegration;
