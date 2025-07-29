@@ -70,63 +70,70 @@ class JustBatsScraperPlaywright {
   }
 
   async getAllBatModels() {
-    try {
-      console.log('\n📊 Fetching bat models with JustBats URLs...');
-      
-      const { data: batModels, error } = await supabase
-        .from('bat_models')
-        .select(`
+  try {
+    console.log('\n📊 Fetching bat models with JustBats URLs...');
+    
+    const { data: batModels, error } = await supabase
+      .from('bat_models')
+      .select(`
+        *,
+        bat_variants (
           *,
-          bat_variants (
+          prices (
             *,
-            prices (
-              *,
-              retailers (id, name)
-            )
+            retailers (id, name)
           )
-        `)
-        .not('justbats_product_url', 'is', null)
-        .eq('url_status', 'active')
-        .order('id');
+        )
+      `)
+      .not('justbats_product_url', 'is', null)
+      .eq('url_status', 'active')
+      .order('id');
 
-      if (error) throw error;
+    if (error) throw error;
 
-      console.log(`✅ Found ${batModels.length} bat models with JustBats URLs`);
-      
-      // Transform data for easier processing
-      const transformedBats = batModels.map(bat => ({
-        id: bat.id,
-        brand: bat.brand,
-        series: bat.series,
-        year: bat.year,
-        certification: bat.certification,
-        material: bat.material,
-        construction: bat.construction,
-        barrel_size: bat.barrel_size,
-        justbats_url: bat.justbats_product_url,
-        variants: bat.bat_variants.map(variant => ({
-          id: variant.id,
-          length: variant.length,
-          weight: variant.weight,
-          drop: variant.drop,
-          prices: variant.prices.map(price => ({
-            id: price.id,
-            retailer_id: price.retailer_id,
-            retailer_name: price.retailers.name,
-            price: price.price,
-            in_stock: price.in_stock,
-            last_updated: price.last_updated,
-            previous_price: price.previous_price
-          }))
+    console.log(`✅ Found ${batModels.length} bat models with JustBats URLs`);
+    
+    // Transform data for easier processing
+    const transformedBats = batModels.map(bat => ({
+      id: bat.id,
+      brand: bat.brand,
+      series: bat.series,
+      year: bat.year,
+      certification: bat.certification,
+      material: bat.material,
+      construction: bat.construction,
+      barrel_size: bat.barrel_size,
+      image_url: bat.image_url,
+      justbats_url: bat.justbats_product_url,
+      // ADD: Drop-specific URLs
+      justbats_url_drop_5: bat.justbats_url_drop_5,
+      justbats_url_drop_8: bat.justbats_url_drop_8,
+      justbats_url_drop_9: bat.justbats_url_drop_9,
+      justbats_url_drop_10: bat.justbats_url_drop_10,
+      justbats_url_drop_11: bat.justbats_url_drop_11,
+      variants: bat.bat_variants.map(variant => ({
+        id: variant.id,
+        length: variant.length,
+        weight: variant.weight,
+        drop: variant.drop,
+        prices: variant.prices.map(price => ({
+          id: price.id,
+          retailer_id: price.retailer_id,
+          retailer_name: price.retailers.name,
+          price: price.price,
+          in_stock: price.in_stock,
+          last_updated: price.last_updated,
+          previous_price: price.previous_price
         }))
-      }));
+      }))
+    }));
 
-      return transformedBats;
-    } catch (error) {
-      console.error('❌ Error fetching bat models:', error.message);
-      throw error;
-    }
+    return transformedBats;
+  } catch (error) {
+    console.error('❌ Error fetching bat models:', error.message);
+    throw error;
   }
+}
 
   async markUrlAsBroken(batModelId, errorMessage) {
     try {
@@ -260,38 +267,80 @@ class JustBatsScraperPlaywright {
   // SCRAPING FUNCTIONS (Enhanced)
   // =============================================
 
-  async processBatModel(batModel) {
-    try {
-      console.log(`\n🔍 Processing: ${batModel.brand} ${batModel.series} ${batModel.year}`);
+  // Get available drop-specific URLs for a bat model
+getDropSpecificUrls(batModel) {
+  const urls = [];
+  
+  if (batModel.justbats_url_drop_5) urls.push({ drop: '-5', url: batModel.justbats_url_drop_5 });
+  if (batModel.justbats_url_drop_8) urls.push({ drop: '-8', url: batModel.justbats_url_drop_8 });
+  if (batModel.justbats_url_drop_9) urls.push({ drop: '-9', url: batModel.justbats_url_drop_9 });
+  if (batModel.justbats_url_drop_10) urls.push({ drop: '-10', url: batModel.justbats_url_drop_10 });
+  if (batModel.justbats_url_drop_11) urls.push({ drop: '-11', url: batModel.justbats_url_drop_11 });
+  
+  return urls;
+}
+
+async processBatModel(batModel) {
+  try {
+    console.log(`\n🔍 Processing: ${batModel.brand} ${batModel.series} ${batModel.year}`);
+    
+    // NEW: Check if bat has drop-specific URLs
+    const dropUrls = this.getDropSpecificUrls(batModel);
+    
+    if (dropUrls.length > 0) {
+      // NEW: Process using drop-specific URLs
+      console.log(`🎯 Found ${dropUrls.length} drop-specific URLs - using enhanced processing`);
+      await this.processWithDropUrls(batModel, dropUrls);
+    } else {
+      // EXISTING: Use original logic for backwards compatibility
       console.log(`📍 URL: ${batModel.justbats_url}`);
-      
-      // Navigate to the product URL
-      try {
-        await this.page.goto(batModel.justbats_url, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      } catch (error) {
-        console.log(`   ❌ Failed to load URL: ${error.message}`);
-        
-        // Check if URL is broken
-        if (error.message.includes('net::ERR_NAME_NOT_RESOLVED') || 
-            error.message.includes('404') ||
-            error.message.includes('Page not found')) {
-          await this.markUrlAsBroken(batModel.id, error.message);
-        }
-        
-        this.results.errors++;
-        return;
-      }
-      
-      // Wait a bit for dynamic content
+      await this.processWithSingleUrl(batModel);
+    }
+    
+  } catch (error) {
+    console.error(`❌ Error processing ${batModel.brand} ${batModel.series}:`, error.message);
+    this.results.errors++;
+  }
+}
+
+// NEW: Process bat using drop-specific URLs
+async processWithDropUrls(batModel, dropUrls) {
+  let totalUpdates = 0;
+  let scrapedData = {}; // For image extraction
+  
+  for (const dropUrl of dropUrls) {
+    console.log(`\n🎯 Processing ${dropUrl.drop} drop: ${dropUrl.url}`);
+    
+    try {
+      await this.page.goto(dropUrl.url, { waitUntil: 'domcontentloaded', timeout: 30000 });
       await this.randomDelay(1000, 2000);
       
-      // Extract size-specific pricing
-      const scrapedData = await this.extractSizeSpecificPricing(batModel.justbats_url);
-      const sizeSpecificPricing = scrapedData.pricing || scrapedData;
+      // Extract image from first URL only (same as original logic)
+      if (dropUrls.indexOf(dropUrl) === 0) {
+        if (!batModel.image_url || batModel.image_url.includes('placeholder')) {
+          const imageUrl = await this.extractProductImage();
+          if (imageUrl) {
+            const uploadedImageUrl = await this.downloadAndUploadImage(imageUrl, batModel.id, 'justbats');
+            scrapedData.imageUrl = uploadedImageUrl;
+            scrapedData.imageSource = 'justbats';
+          }
+        }
+      }
       
-
-      // Check if first variant is discontinued (from getSinglePrice)
-        if (sizeSpecificPricing && sizeSpecificPricing.length === 1 && 
+      const urlScrapedData = await this.extractSizeSpecificPricing(dropUrl.url);
+      const sizeSpecificPricing = urlScrapedData.pricing || urlScrapedData;
+      
+      // Preserve model number and swing weight extraction
+      if (urlScrapedData.modelNumber) scrapedData.modelNumber = urlScrapedData.modelNumber;
+      if (urlScrapedData.swingWeight) scrapedData.swingWeight = urlScrapedData.swingWeight;
+      
+      if (!sizeSpecificPricing || sizeSpecificPricing.length === 0) {
+        console.log(`   ⚠️  No variants found for ${dropUrl.drop} drop`);
+        continue;
+      }
+      
+      // Handle discontinuation check (same logic as original)
+      if (sizeSpecificPricing.length === 1 && 
           sizeSpecificPricing[0].length === 'Standard' && 
           sizeSpecificPricing[0].discontinued === true) {
         console.log('   🚫 Marking all variants as out of stock due to discontinuation');
@@ -303,36 +352,16 @@ class JustBatsScraperPlaywright {
               .from('prices')
               .update({ in_stock: false })
               .eq('id', existingPrice.id);
-
             console.log(`   📊 Database update error: ${error?.message || 'Success'}`);
           }
         }
-        return; // Skip normal processing
-        }
-
-      // Extract and upload image if not already stored
-      if (!batModel.image_url || batModel.image_url.includes('placeholder')) {
-        const imageUrl = await this.extractProductImage();
-        if (imageUrl) {
-          const uploadedImageUrl = await this.downloadAndUploadImage(imageUrl, batModel.id, 'justbats');
-          scrapedData.imageUrl = uploadedImageUrl;
-          scrapedData.imageSource = 'justbats';
-        }
-}
-      
-      if (!sizeSpecificPricing || sizeSpecificPricing.length === 0) {
-        console.log(`   ⚠️  No size variants found`);
-        this.results.skipped++;
-        return;
+        continue;
       }
       
-      console.log(`   📊 Found ${sizeSpecificPricing.length} size variants`);
+      console.log(`   📊 Found ${sizeSpecificPricing.length} variants for ${dropUrl.drop} drop`);
       
-      // Match scraped variants to database variants and update prices
-      let updatesCount = 0;
-      
+      // Process variants (exact same logic as original)
       for (const scrapedVariant of sizeSpecificPricing) {
-        // Find matching database variant (now includes weight matching)
         const matchingVariant = batModel.variants.find(dbVariant => {
           const lengthMatch = dbVariant.length === scrapedVariant.length;
           const weightMatch = dbVariant.weight === scrapedVariant.weight;
@@ -341,51 +370,149 @@ class JustBatsScraperPlaywright {
         });
         
         if (matchingVariant) {
-          // Update existing variant
           const updated = await this.updateVariantPrice(matchingVariant.id, scrapedVariant);
-          if (updated) updatesCount++;
+          if (updated) totalUpdates++;
         } else {
-          // Create missing variant
           console.log(`   🔍 No matching variant found for ${scrapedVariant.length} ${scrapedVariant.weight} ${scrapedVariant.drop}`);
           const newVariantId = await this.createMissingVariant(batModel.id, scrapedVariant);
           
           if (newVariantId) {
-            // Add price for the newly created variant
             const updated = await this.updateVariantPrice(newVariantId, scrapedVariant);
-            if (updated) updatesCount++;
+            if (updated) totalUpdates++;
           }
         }
       }
       
-      // Update URL verification timestamp and new extracted data
-      const updateData = { url_last_verified: new Date().toISOString() };
-
-      // Add model number and swing weight if extracted
-      if (scrapedData.modelNumber) {
-        updateData.model_number = scrapedData.modelNumber;
-      }
-      if (scrapedData.swingWeight) {
-        updateData.swing_weight = scrapedData.swingWeight;
-      }
-      // Add image data if extracted
-      if (scrapedData.imageUrl) {
-        updateData.image_url = scrapedData.imageUrl;
-        updateData.image_source = scrapedData.imageSource;
-}
-
-await supabase
-  .from('bat_models')
-  .update(updateData)
-  .eq('id', batModel.id);
-      
-      console.log(`   🎯 Successfully updated ${updatesCount} prices`);
-      this.results.modelsProcessed++;
-      
     } catch (error) {
-      console.error(`❌ Error processing ${batModel.brand} ${batModel.series}:`, error.message);
-      this.results.errors++;
+      console.log(`   ❌ Error processing ${dropUrl.drop} drop: ${error.message}`);
+      
+      if (error.message.includes('net::ERR_NAME_NOT_RESOLVED') || 
+          error.message.includes('404') ||
+          error.message.includes('Page not found')) {
+        await this.markUrlAsBroken(batModel.id, error.message);
+      }
     }
   }
+  
+  // Update bat model (same logic as original)
+  const updateData = { url_last_verified: new Date().toISOString() };
+  if (scrapedData.modelNumber) updateData.model_number = scrapedData.modelNumber;
+  if (scrapedData.swingWeight) updateData.swing_weight = scrapedData.swingWeight;
+  if (scrapedData.imageUrl) {
+    updateData.image_url = scrapedData.imageUrl;
+    updateData.image_source = scrapedData.imageSource;
+  }
+
+  await supabase
+    .from('bat_models')
+    .update(updateData)
+    .eq('id', batModel.id);
+  
+  console.log(`   🎯 Total updates across all drops: ${totalUpdates}`);
+  this.results.modelsProcessed++;
+}
+
+// EXISTING: Original single URL processing (unchanged)
+async processWithSingleUrl(batModel) {
+  try {
+    await this.page.goto(batModel.justbats_url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+  } catch (error) {
+    console.log(`   ❌ Failed to load URL: ${error.message}`);
+    
+    if (error.message.includes('net::ERR_NAME_NOT_RESOLVED') || 
+        error.message.includes('404') ||
+        error.message.includes('Page not found')) {
+      await this.markUrlAsBroken(batModel.id, error.message);
+    }
+    
+    this.results.errors++;
+    return;
+  }
+  
+  await this.randomDelay(1000, 2000);
+  
+  const scrapedData = await this.extractSizeSpecificPricing(batModel.justbats_url);
+  const sizeSpecificPricing = scrapedData.pricing || scrapedData;
+  
+  // Check if first variant is discontinued (from getSinglePrice)
+  if (sizeSpecificPricing && sizeSpecificPricing.length === 1 && 
+    sizeSpecificPricing[0].length === 'Standard' && 
+    sizeSpecificPricing[0].discontinued === true) {
+    console.log('   🚫 Marking all variants as out of stock due to discontinuation');
+    for (const dbVariant of batModel.variants) {
+      const existingPrice = dbVariant.prices.find(p => p.retailer_id === this.retailerIds.justbats);
+      if (existingPrice) {
+        console.log(`   📝 Updating variant ${dbVariant.length} ${dbVariant.drop} - setting in_stock to false`);
+        const { error } = await supabase
+          .from('prices')
+          .update({ in_stock: false })
+          .eq('id', existingPrice.id);
+        console.log(`   📊 Database update error: ${error?.message || 'Success'}`);
+      }
+    }
+    return;
+  }
+
+  // Extract and upload image if not already stored
+  if (!batModel.image_url || batModel.image_url.includes('placeholder')) {
+    const imageUrl = await this.extractProductImage();
+    if (imageUrl) {
+      const uploadedImageUrl = await this.downloadAndUploadImage(imageUrl, batModel.id, 'justbats');
+      scrapedData.imageUrl = uploadedImageUrl;
+      scrapedData.imageSource = 'justbats';
+    }
+  }
+  
+  if (!sizeSpecificPricing || sizeSpecificPricing.length === 0) {
+    console.log(`   ⚠️  No size variants found`);
+    this.results.skipped++;
+    return;
+  }
+  
+  console.log(`   📊 Found ${sizeSpecificPricing.length} size variants`);
+  
+  let updatesCount = 0;
+  
+  for (const scrapedVariant of sizeSpecificPricing) {
+    const matchingVariant = batModel.variants.find(dbVariant => {
+      const lengthMatch = dbVariant.length === scrapedVariant.length;
+      const weightMatch = dbVariant.weight === scrapedVariant.weight;
+      const dropMatch = dbVariant.drop === scrapedVariant.drop;
+      return lengthMatch && weightMatch && dropMatch;
+    });
+    
+    if (matchingVariant) {
+      const updated = await this.updateVariantPrice(matchingVariant.id, scrapedVariant);
+      if (updated) updatesCount++;
+    } else {
+      console.log(`   🔍 No matching variant found for ${scrapedVariant.length} ${scrapedVariant.weight} ${scrapedVariant.drop}`);
+      const newVariantId = await this.createMissingVariant(batModel.id, scrapedVariant);
+      
+      if (newVariantId) {
+        const updated = await this.updateVariantPrice(newVariantId, scrapedVariant);
+        if (updated) updatesCount++;
+      }
+    }
+  }
+  
+  // Update URL verification timestamp and new extracted data
+  const updateData = { url_last_verified: new Date().toISOString() };
+
+  if (scrapedData.modelNumber) updateData.model_number = scrapedData.modelNumber;
+  if (scrapedData.swingWeight) updateData.swing_weight = scrapedData.swingWeight;
+  if (scrapedData.imageUrl) {
+    updateData.image_url = scrapedData.imageUrl;
+    updateData.image_source = scrapedData.imageSource;
+  }
+
+  await supabase
+    .from('bat_models')
+    .update(updateData)
+    .eq('id', batModel.id);
+  
+  console.log(`   🎯 Successfully updated ${updatesCount} prices`);
+  this.results.modelsProcessed++;
+}
 
   async extractSizeSpecificPricing(productUrl) {
     try {
@@ -1057,12 +1184,12 @@ async function testJustBatsUpdater() {
    // OPTION 1: Test single bat
    console.log('Testing single bat model...\n');
    const allBats = await scraper.getAllBatModels();
-   const testBat = allBats.find(bat => bat.id === 53); // Change ID as needed
+   const testBat = allBats.find(bat => bat.id === 90); // Change ID as needed
    if (testBat) {
      console.log(`Testing single bat: ${testBat.brand} ${testBat.series} ${testBat.year}\n`);
      await scraper.processBatModel(testBat);
    } else {
-     console.log('❌ Bat with specified ID not found');
+     console.log('❌ Bat with specified ID 90 not found');
    }
    
    // OPTION 2: Production - all bats
