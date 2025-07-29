@@ -1043,24 +1043,38 @@ console.log(`   📦 Stock check for ${variant.text}: ${inStock}`);
 }
 
 // =============================================
-// TEST FUNCTION
+// CHOOSE TEST OR PRODUCTION FUNCTION
 // =============================================
 async function testJustBatsUpdater() {
-  const scraper = new JustBatsScraperPlaywright();
-  await scraper.init();
-  
-  try {
-    console.log('🧪 TESTING JustBats Database Price Updater');
-    console.log('Running all bat models...\n');
-    
-    await scraper.runPriceUpdates(); // Process all bats
-    
-  } catch (error) {
-    console.error('❌ Test failed:', error);
-  } finally {
-    await scraper.close();
-    console.log('\n🏁 Test completed');
-  }
+ const scraper = new JustBatsScraperPlaywright();
+ await scraper.init();
+ 
+ try {
+   console.log('🧪 TESTING JustBats Database Price Updater');
+   
+   // ===== CHOOSE ONE: COMMENT OUT THE OTHER =====
+   
+   // OPTION 1: Test single bat
+   console.log('Testing single bat model...\n');
+   const allBats = await scraper.getAllBatModels();
+   const testBat = allBats.find(bat => bat.id === 53); // Change ID as needed
+   if (testBat) {
+     console.log(`Testing single bat: ${testBat.brand} ${testBat.series} ${testBat.year}\n`);
+     await scraper.processBatModel(testBat);
+   } else {
+     console.log('❌ Bat with specified ID not found');
+   }
+   
+   // OPTION 2: Production - all bats
+   // console.log('Running all bat models...\n');
+   // await scraper.runPriceUpdates(); // Process all bats
+   
+ } catch (error) {
+   console.error('❌ Test failed:', error);
+ } finally {
+   await scraper.close();
+   console.log('\n🏁 Test completed');
+ }
 }
 
 // Export for use in other files

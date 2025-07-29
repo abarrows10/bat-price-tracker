@@ -141,7 +141,7 @@ class AmazonApiClient {
             const response = JSON.parse(data);
             
             if (res.statusCode === 200) {
-              console.log('🔍 DEBUG: Full API Response:', JSON.stringify(response, null, 2));
+              
               resolve(response);
             } else {
               console.error(`Amazon API Error (${res.statusCode}):`, response);

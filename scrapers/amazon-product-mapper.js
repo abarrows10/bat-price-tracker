@@ -595,6 +595,60 @@ extractDefaultLength(title) {
   return 32;
 }
 
+// Extract colorway from Amazon product data
+extractColorway(amazonProduct) {
+ try {
+   const title = amazonProduct.ItemInfo?.Title?.DisplayValue || '';
+   
+   // Step 1: Check for special product name variations first
+   const specialVariations = [
+     'pool party', 'fire ice', 'blackout', 'whiteout', 
+     'stealth', 'glow', 'electric', 'neon', 'ghost',
+     'platinum', 'gold', 'silver', 'cosmic', 'galaxy',
+     'vapor', 'phantom', 'carbon', 'chrome', 'flame',
+     'ice', 'storm', 'thunder', 'lightning', 'sunset'
+   ];
+   
+   for (const variation of specialVariations) {
+     if (title.toLowerCase().includes(variation)) {
+       return variation;
+     }
+   }
+   
+   // Step 2: Check VariationAttributes for color_name
+   if (amazonProduct.VariationAttributes) {
+     const colorAttr = amazonProduct.VariationAttributes.find(attr => 
+       attr.Name === 'color_name'
+     );
+     if (colorAttr && colorAttr.Value) {
+       const colorValue = colorAttr.Value.trim();
+       
+       // Step 3: Map basic/standard colors to "standard"
+       const standardColors = [
+         'Orange', 'Black', 'White', 'Red', 'Blue', 'Green', 
+         'Yellow', 'Gray', 'Grey', 'Silver', 'Natural',
+         'Standard', 'Default', 'Primary'
+       ];
+       
+       // If it's a basic color, treat as standard
+       if (standardColors.includes(colorValue)) {
+         return 'standard';
+       }
+       
+       // Otherwise return the specific colorway (lowercase for consistency)
+       return colorValue.toLowerCase();
+     }
+   }
+   
+   // Step 4: Default fallback
+   return 'standard';
+   
+ } catch (error) {
+   console.log(`   ⚠️ Error extracting colorway: ${error.message}`);
+   return 'standard';
+ }
+}
+
   // Calculate relevance score for matching against database bats
   calculateRelevanceScore(title, features) {
     let score = 0;

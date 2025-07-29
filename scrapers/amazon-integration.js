@@ -82,7 +82,7 @@ class AmazonIntegration {
  .from('bat_models')
  .select(`
    *,
-   bat_variants!inner (
+   bat_variants (
      id,
      bat_model_id,
      length,
@@ -317,168 +317,178 @@ class AmazonIntegration {
   }
 
   // Store newly discovered ASINs for future GetItems calls
-  async storeVariantASINs(batModel, amazonProducts) {
-  try {
-    console.log(`   💾 Storing variant ASINs for future use...`);
-    
-    for (const product of amazonProducts) {
-      const extractedInfo = this.mapper.extractBatInfo(product);
-      const variants = extractedInfo.variants || [];
-      
-      for (const variant of variants) {
-        // Find matching database variant by length, drop, and weight
-        const matchingVariant = batModel.variants.find(dbVariant => {
-          const lengthMatch = dbVariant.length === variant.length;
-          const dropMatch = dbVariant.drop === variant.drop;
-          // Optional weight match (in case weights differ slightly)
-          return lengthMatch && dropMatch;
-        });
-        
-        if (matchingVariant && !matchingVariant.asin) {
-          // Store the ASIN for this variant
-          const { error } = await supabase
-            .from('bat_variants')
-            .update({ 
-              asin: product.ASIN,
-              amazon_product_url: `https://www.amazon.com/dp/${product.ASIN}?tag=battracker-20`
-            })
-            .eq('id', matchingVariant.id);
-          
-          if (!error) {
-            console.log(`     ✅ Stored ASIN ${product.ASIN} for ${variant.length} ${variant.drop}`);
-          } else {
-            console.log(`     ❌ Error storing ASIN: ${error.message}`);
-          }
-        }
-      }
-    }
-    
-  } catch (error) {
-    console.error(`   ❌ Error storing variant ASINs: ${error.message}`);
-  }
+async storeVariantASINs(batModel, amazonProducts) {
+ try {
+   console.log(`   💾 Storing variant ASINs for future use...`);
+   
+   // STEP 1: Determine the seed colorway from the first product
+   let seedColorway = null;
+   if (amazonProducts.length > 0) {
+     const seedProduct = amazonProducts[0];
+     
+     // If seed doesn't have VariationAttributes, get them
+     if (!seedProduct.VariationAttributes) {
+       const variations = await this.apiClient.getVariations(seedProduct.ASIN);
+       if (variations && variations.length > 0) {
+         // Use first variation that has VariationAttributes
+         const varWithAttrs = variations.find(v => v.VariationAttributes);
+         if (varWithAttrs) {
+           seedColorway = this.mapper.extractColorway(varWithAttrs);
+         }
+       }
+     } else {
+       seedColorway = this.mapper.extractColorway(seedProduct);
+     }
+     
+     console.log(`🎨 Seed colorway detected: "${seedColorway}"`);
+   }
+   
+   let storedCount = 0;
+   let skippedCount = 0;
+   
+   for (const product of amazonProducts) {
+     const extractedInfo = this.mapper.extractBatInfo(product);
+     const variants = extractedInfo.variants || [];
+     
+     // STEP 2: Check if this product matches the seed colorway
+     if (seedColorway) {
+       const productColorway = this.mapper.extractColorway(product);
+       
+       // Always allow seed ASIN, otherwise check colorway match
+       if (product.ASIN !== batModel.amazon_asin && productColorway !== seedColorway) {
+         console.log(`     🎨 Skipping different colorway: "${productColorway}" (expected: "${seedColorway}")`);
+         skippedCount++;
+         continue;
+       }
+     }
+     
+     // STEP 3: Store matching variants
+     for (const variant of variants) {
+       // Find matching database variant by length, drop, and weight
+       const matchingVariant = batModel.variants.find(dbVariant => {
+         const lengthMatch = dbVariant.length === variant.length;
+         const dropMatch = dbVariant.drop === variant.drop;
+         return lengthMatch && dropMatch;
+       });
+       
+       if (matchingVariant && !matchingVariant.asin) {
+         // Store the ASIN for this variant
+         const { error } = await supabase
+           .from('bat_variants')
+           .update({ 
+             asin: product.ASIN,
+             amazon_product_url: `https://www.amazon.com/dp/${product.ASIN}?tag=battracker-20`
+           })
+           .eq('id', matchingVariant.id);
+         
+         if (!error) {
+           console.log(`     ✅ Stored ASIN ${product.ASIN} for ${variant.length} ${variant.drop}`);
+           storedCount++;
+         } else {
+           console.log(`     ❌ Error storing ASIN: ${error.message}`);
+         }
+       }
+     }
+   }
+   
+   console.log(`   📊 Colorway filtering summary: ${storedCount} stored, ${skippedCount} skipped (different colorway)`);
+   
+ } catch (error) {
+   console.error(`   ❌ Error storing variant ASINs: ${error.message}`);
+ }
 }
 
   // =============================================
-  // DATABASE UPDATE FUNCTIONS
-  // =============================================
+// DATABASE UPDATE FUNCTIONS
+// =============================================
 
-  async updateExistingBatPrices(databaseBat, searchResults) {
-    try {
-      const amazonRetailerId = await this.getAmazonRetailerId();
-      let updatesCount = 0;
+// Enhanced colorway matching function
+isColorwayMatch(seedColorway, productColorway) {
+  // Exact match
+  if (seedColorway === productColorway) {
+    return true;
+  }
+  
+  // Both are considered "standard" variations
+  const standardVariations = ['standard', 'orange', 'black', 'white', 'red', 'blue', 'green', 'gray', 'grey', 'silver', 'natural', 'default', 'primary'];
+  
+  if (standardVariations.includes(seedColorway?.toLowerCase()) && 
+      standardVariations.includes(productColorway?.toLowerCase())) {
+    return true;
+  }
+  
+  return false;
+}
+
+async updateExistingBatPrices(databaseBat, searchResults) {
+  try {
+    const amazonRetailerId = await this.getAmazonRetailerId();
+    let updatesCount = 0;
+    
+    console.log(`\n💰 Updating Amazon prices for ${databaseBat.brand} ${databaseBat.series} ${databaseBat.year}...`);
+    
+    if (!searchResults || searchResults.length === 0) {
+      console.log('⚠️  No search results to process');
+      return 0;
+    }
+    
+    const bestMatch = searchResults[0];
+    if (!bestMatch.isMatch || !bestMatch.batInfo) {
+      console.log('⚠️  No valid match found for price update');
+      return 0;
+    }
+
+    // ===== ENHANCED COLORWAY FILTERING =====
+    // STEP 1: Determine seed colorway from the main ASIN
+    let seedColorway = null;
+    if (databaseBat.amazon_asin && searchResults.length > 0) {
+      const seedProduct = searchResults.find(result => 
+        result.product && result.product.ASIN === databaseBat.amazon_asin
+      );
       
-      console.log(`\n💰 Updating Amazon prices for ${databaseBat.brand} ${databaseBat.series} ${databaseBat.year}...`);
-      
-      if (!searchResults || searchResults.length === 0) {
-        console.log('⚠️  No search results to process');
-        return 0;
+      if (seedProduct && seedProduct.product) {
+        seedColorway = this.mapper.extractColorway(seedProduct.product);
+        console.log(`   🎨 Seed colorway detected: "${seedColorway}"`);
       }
-      
-      const bestMatch = searchResults[0];
-      if (!bestMatch.isMatch || !bestMatch.batInfo) {
-        console.log('⚠️  No valid match found for price update');
-        return 0;
-      }
-      
-      // Process ALL variants and their pricing
-      if (searchResults.length > 1) {
-        console.log(`   📊 Processing ${searchResults.length} product variants:`);
+    }
+    
+    // If no seed colorway found, default to 'standard'
+    if (!seedColorway) {
+      seedColorway = 'standard';
+      console.log(`   🎨 No seed ASIN found, defaulting to: "${seedColorway}"`);
+    }
+
+    // STEP 2: Filter search results by colorway (using enhanced matching)
+    let filteredResults = searchResults;
+    if (seedColorway) {
+      filteredResults = searchResults.filter(result => {
+        if (!result.product) return false;
         
-        for (let i = 0; i < searchResults.length; i++) {
-          const result = searchResults[i];
-          if (!result.isMatch || !result.batInfo) continue;
-          
-          const amazonBat = result.batInfo;
-          console.log(`     ${i + 1}. ${amazonBat.title?.substring(0, 50)}... - ${amazonBat.price}`);
-          
-          // Process each variant's specific pricing
-          for (const amazonVariant of amazonBat.variants) {
-            // Find matching database variant
-            const matchingVariant = databaseBat.variants.find(dbVariant => {
-              const lengthMatch = dbVariant.length === amazonVariant.length;
-              const dropMatch = dbVariant.drop === amazonVariant.drop;
-              return lengthMatch && dropMatch;
-            });
-            
-            if (matchingVariant) {
-              // Update existing variant pricing
-              const updated = await this.updateVariantPrice(
-                matchingVariant.id, 
-                amazonBat.price, 
-                amazonBat.inStock, 
-                amazonRetailerId,
-                amazonBat.url
-              );
-              if (updated) updatesCount++;
-            } else {
-              // Create missing variant
-              console.log(`     🔍 No matching variant found for ${amazonVariant.length} ${amazonVariant.drop}`);
-              const newVariantId = await this.createMissingVariant(
-                databaseBat.id, 
-                amazonVariant
-              );
-              
-              if (newVariantId) {
-                // Add price for the newly created variant
-                const updated = await this.updateVariantPrice(
-                  newVariantId, 
-                  amazonBat.price, 
-                  amazonBat.inStock, 
-                  amazonRetailerId,
-                  amazonBat.url
-                );
-                if (updated) updatesCount++;
-              }
-            }
-          }
+        const productColorway = this.mapper.extractColorway(result.product);
+        const matches = this.isColorwayMatch(seedColorway, productColorway);
+        
+        if (!matches) {
+          console.log(`   🎨 Skipping different colorway: "${productColorway}" (expected: "${seedColorway}")`);
         }
-      } else {
-        // Single product - original logic
-        const amazonBat = bestMatch.batInfo;
+        
+        return matches;
+      });
       
-      // Handle image download and upload if no image exists
-      const updateData = {
-        amazon_product_url: `https://www.amazon.com/dp/${amazonBat.asin}?tag=battracker-20`,
-        amazon_asin: amazonBat.asin,
-        url_last_verified: new Date().toISOString()
-      };
+      console.log(`   📊 Colorway filtering: ${filteredResults.length} kept, ${searchResults.length - filteredResults.length} skipped`);
+    }
+
+    // Process filtered variants and their pricing
+    if (filteredResults.length > 1) {
+      console.log(`   📊 Processing ${filteredResults.length} product variants:`);
       
-      // Update rating and review count if available
-      if (amazonBat.rating) {
-        updateData.rating = amazonBat.rating;
-      }
-      if (amazonBat.reviewCount) {
-        updateData.review_count = amazonBat.reviewCount;
-      }
-      
-      // Check if we need to download and store an image (prioritize JustBats images)
-      if (!databaseBat.image_url || databaseBat.image_url.includes('placeholder')) {
-        if (amazonBat.images && amazonBat.images.primary) {
-          console.log(`   📸 No image found, downloading from Amazon...`);
-          const uploadedImageUrl = await this.downloadAndUploadImage(
-            amazonBat.images.primary, 
-            databaseBat.id, 
-            'amazon'
-          );
-          if (uploadedImageUrl) {
-            updateData.image_url = uploadedImageUrl;
-            updateData.image_source = 'amazon';
-            console.log(`   ✅ Image uploaded successfully`);
-          }
-        }
-      } else {
-        console.log(`   📸 Using existing image (likely from JustBats)`);
-      }
-      
-      // Update bat model with Amazon data and possibly new image
-      if (amazonBat.asin) {
-        await supabase
-          .from('bat_models')
-          .update(updateData)
-          .eq('id', databaseBat.id);
-      }
-      
-        // Process variants and pricing for single product
+      for (let i = 0; i < filteredResults.length; i++) {
+        const result = filteredResults[i];
+        if (!result.isMatch || !result.batInfo) continue;
+        
+        const amazonBat = result.batInfo;
+        console.log(`     ${i + 1}. ${amazonBat.title?.substring(0, 50)}... - ${amazonBat.price}`);
+        
+        // Process each variant's specific pricing
         for (const amazonVariant of amazonBat.variants) {
           // Find matching database variant
           const matchingVariant = databaseBat.variants.find(dbVariant => {
@@ -519,13 +529,87 @@ class AmazonIntegration {
           }
         }
       }
+    } else if (filteredResults.length === 1) {
+      // Single product processing (existing logic)
+      const amazonBat = filteredResults[0].batInfo;
       
-      return updatesCount;
-    } catch (error) {
-      console.error('❌ Error updating existing bat prices:', error.message);
-      return 0;
+      const updateData = {
+        rating: amazonBat.rating,
+        review_count: amazonBat.reviewCount,
+        url_last_verified: new Date().toISOString()
+      };
+      
+      if (amazonBat.images?.primary && !databaseBat.image_url) {
+        const uploadedImageUrl = await this.uploadBatImage(
+          amazonBat.images.primary, 
+          databaseBat.id,
+          'amazon'
+        );
+        if (uploadedImageUrl) {
+          updateData.image_url = uploadedImageUrl;
+        }
+      }
+      
+      // Update bat model with Amazon data and possibly new image
+      if (amazonBat.asin) {
+        await supabase
+          .from('bat_models')
+          .update(updateData)
+          .eq('id', databaseBat.id);
+      }
+      
+      // Process variants and pricing for single product
+      for (const amazonVariant of amazonBat.variants) {
+        // Find matching database variant
+        const matchingVariant = databaseBat.variants.find(dbVariant => {
+          const lengthMatch = dbVariant.length === amazonVariant.length;
+          const dropMatch = dbVariant.drop === amazonVariant.drop;
+          return lengthMatch && dropMatch;
+        });
+        
+        if (matchingVariant) {
+          // Update existing variant pricing
+          const updated = await this.updateVariantPrice(
+            matchingVariant.id, 
+            amazonBat.price, 
+            amazonBat.inStock, 
+            amazonRetailerId,
+            amazonBat.url
+          );
+          if (updated) updatesCount++;
+        } else {
+          // Create missing variant
+          console.log(`     🔍 No matching variant found for ${amazonVariant.length} ${amazonVariant.drop}`);
+          const newVariantId = await this.createMissingVariant(
+            databaseBat.id, 
+            amazonVariant
+          );
+          
+          if (newVariantId) {
+            // Add price for the newly created variant
+            const updated = await this.updateVariantPrice(
+              newVariantId, 
+              amazonBat.price, 
+              amazonBat.inStock, 
+              amazonRetailerId,
+              amazonBat.url
+            );
+            if (updated) updatesCount++;
+          }
+        }
+      }
+    } else {
+      console.log(`   ⚠️  No matching colorway variants found after filtering`);
     }
+    
+    console.log(`   🎯 Successfully updated ${updatesCount} prices`);
+    return updatesCount;
+    
+  } catch (error) {
+    console.error(`❌ Error updating bat prices: ${error.message}`);
+    return 0;
   }
+}
 
   // Image download and upload functionality (same as JustBats scraper)
   async downloadAndUploadImage(imageUrl, batModelId, retailer = 'amazon') {
@@ -827,44 +911,54 @@ class AmazonIntegration {
 // =============================================
 // TEST FUNCTION ALL BATS
 // =============================================
-async function testAmazonIntegration() {
-  const integration = new AmazonIntegration();
+//async function testAmazonIntegration() {
+  //const integration = new AmazonIntegration();
   
-  console.log('🧪 TESTING Amazon API Integration');
-  console.log('Running all bats...\n');
+  //console.log('🧪 TESTING Amazon API Integration');
+  //console.log('Running all bats...\n');
   
-  try {
-    await integration.run(); // Process all bats
-  } catch (error) {
-    console.error('❌ Test failed:', error);
-  }
-  }
+  //try {
+    //await integration.run(); // Process all bats
+  //} catch (error) {
+    //console.error('❌ Test failed:', error);
+  //}
+  //}
 
 // =============================================
 // TEST FUNCTION SPECIFIC BAT MODEL ID
 // =============================================
 
-//async function testAmazonIntegration() {
-  //const integration = new AmazonIntegration();
-  
-  //console.log('🧪 TESTING Amazon API Integration - Bat Model ID 62');
-  
-  //try {
-     //Get all bats and filter for ID 62
-    //const allBats = await integration.getAllBatModels();
-    //const testBat = allBats.find(bat => bat.id === 62);
-    
-    //if (testBat) {
-      //console.log(`Testing single bat: ${testBat.brand} ${testBat.series} ${testBat.year}\n`);
-      //await integration.processBatModel(testBat);
-    //} else {
-      //console.log('❌ Bat with ID 62 not found');
-    //}
-    
-  //} catch (error) {
-    //console.error('❌ Test failed:', error);
-  //}
-//}
+async function testAmazonIntegration() {
+ const integration = new AmazonIntegration();
+ 
+ console.log('🧪 TESTING Amazon API Integration');
+ 
+ try {
+   const allBats = await integration.getAllBatModels();
+   console.log('Available bat IDs:', allBats.map(bat => bat.id));
+   
+   // ===== CHOOSE ONE: COMMENT OUT THE OTHER =====
+   
+   // OPTION 1: Test single bat
+  //  const testBat = allBats.find(bat => bat.id === 91); // Change ID as needed
+  //  if (testBat) {
+  //    console.log(`Testing single bat: ${testBat.brand} ${testBat.series} ${testBat.year}\n`);
+  //    await integration.processBatModel(testBat);
+  //  } else {
+  //    console.log('❌ Bat with specified ID not found');
+  //  }
+   
+   // OPTION 2: Test multiple bats (Pool Party vs Standard)
+   const testBats = allBats.filter(bat => bat.id === 91 || bat.id === 92);
+   for (const testBat of testBats) {
+     console.log(`\nTesting bat: ${testBat.brand} ${testBat.series} ${testBat.year} (ID: ${testBat.id})`);
+     await integration.processBatModel(testBat);
+   }
+   
+ } catch (error) {
+   console.error('❌ Test failed:', error);
+ }
+}
 
 // Export for use
 module.exports = AmazonIntegration;
