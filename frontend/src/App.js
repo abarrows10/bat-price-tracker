@@ -562,7 +562,7 @@ const BatPriceTracker = () => {
          <img 
            src="/logo.png" 
            alt="Bat Price Tracker" 
-           className="h-16 md:h-20 w-auto"
+           className="h-48 md:h-60 w-auto"
          />
        </div>
        <p className="text-gray-300 mt-1 text-sm md:text-base text-center">Compare baseball bat prices across top retailers</p>
