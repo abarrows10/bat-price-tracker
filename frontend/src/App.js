@@ -554,17 +554,20 @@ const BatPriceTracker = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-900">
-      {/* Header */}
-      <header className="bg-gray-800 shadow-lg border-b border-gray-700 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center">
-            <TrendingUp className="w-6 h-6 md:w-8 md:h-8 mr-2 text-blue-400" />
-            Bat Price Tracker
-          </h1>
-          <p className="text-gray-300 mt-1 text-sm md:text-base">Compare baseball bat prices across top retailers</p>
-        </div>
-      </header>
+ <div className="min-h-screen bg-gray-900">
+   {/* Header */}
+   <header className="bg-black shadow-lg border-b border-gray-700 sticky top-0 z-50">
+     <div className="max-w-7xl mx-auto px-4 py-4">
+       <div className="flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity" onClick={() => window.location.href = '/'}>
+         <img 
+           src="/logo.png" 
+           alt="Bat Price Tracker" 
+           className="h-8 md:h-10 w-auto"
+         />
+       </div>
+       <p className="text-gray-300 mt-1 text-sm md:text-base text-center">Compare baseball bat prices across top retailers</p>
+     </div>
+   </header>
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         {/* Search Bar */}
