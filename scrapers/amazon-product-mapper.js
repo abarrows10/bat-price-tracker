@@ -309,6 +309,8 @@ class AmazonProductMapper {
   }
 
   // Extract size variants from product info
+// REPLACE the extractVariants method in amazon-product-mapper.js
+
 extractVariants(amazonProduct, title, features) {
   const variants = [];
   
@@ -407,17 +409,17 @@ extractVariants(amazonProduct, title, features) {
       }
     }
     
-    // PRIORITY 2: Extract from title if no VariationAttributes
-    // FIRST: Check for explicit drop mention in title
-    const titleText = `${title} ${features.join(' ')}`.toLowerCase();
+    // PRIORITY 2: Extract from title - FIXED LOGIC
+    const titleText = title.toLowerCase();
     let explicitDrop = null;
     
-    // Look for drop patterns like "-10 Drop", "-8 Drop", "(-5)", etc.
+    // Look for explicit drop in title FIRST
     const dropPatterns = [
-      /\-(\d+)\s*drop/i,
-      /\(\-(\d+)\)/i,
-      /drop\s*\-?(\d+)/i,
-      /\-(\d+)\s*oz/i
+      /\-(\d+)\s+usssa/i,           // "-8 USSSA"
+      /\-(\d+)\s+youth/i,           // "-8 Youth"
+      /usssa.*\-(\d+)/i,            // "USSSA ... -8"
+      /\|\s*\-(\d+)\s*\|/i,         // "| -8 |"
+      /\-(\d+)\s*\|\s*2/i           // "-8 | 2 3/4"
     ];
     
     for (const pattern of dropPatterns) {
@@ -430,57 +432,24 @@ extractVariants(amazonProduct, title, features) {
     }
     
     // Extract length from title
-    const titlePatterns = [
-      /(\d+(?:\.\d+)?)["']\s*[\/\-]?\s*(\d+(?:\.\d+)?)\s*oz/i,
-      /(\d+(?:\.\d+)?)\s*inch/i,
-      /(\d+(?:\.\d+)?)in\s*[\/\-]\s*(\d+(?:\.\d+)?)oz/i
-    ];
-
-    for (const pattern of titlePatterns) {
-      const match = title.match(pattern);
-      if (match) {
-        const length = parseFloat(match[1]);
-        let weight, drop;
+    const lengthMatch = title.match(/(\d+)\s*inch/i);
+    if (lengthMatch && explicitDrop) {
+      const length = parseInt(lengthMatch[1]);
+      const dropNum = Math.abs(parseInt(explicitDrop));
+      const weight = length - dropNum;
+      
+      // Validate reasonable dimensions
+      if (length >= 24 && length <= 36 && weight >= 15 && weight <= 35) {
+        variants.push({
+          length: length + '"',
+          weight: weight + ' oz',
+          drop: explicitDrop,
+          asin: amazonProduct.ASIN,
+          source: 'title_parsing'
+        });
         
-        if (match[2]) {
-          // We have both length and weight explicitly
-          weight = parseFloat(match[2]);
-          drop = -(length - weight);
-        } else {
-          // We only have length, use explicit drop or determine from certification
-          if (explicitDrop) {
-            const dropNum = Math.abs(parseInt(explicitDrop));
-            weight = length - dropNum;
-            drop = explicitDrop;
-          } else {
-            // Determine certification and use appropriate default
-            const certification = this.extractCertification(title, features);
-            if (certification === 'USSSA') {
-              weight = length - 10;  // USSSA typically -10
-              drop = '-10';
-            } else if (certification === 'BBCOR') {
-              weight = length - 3;   // BBCOR is always -3
-              drop = '-3';
-            } else {
-              weight = length - 8;   // USA Baseball typically -8
-              drop = '-8';
-            }
-          }
-        }
-        
-        // Validate reasonable dimensions
-        if (length >= 24 && length <= 36 && weight >= 15 && weight <= 35) {
-          variants.push({
-            length: length + '"',
-            weight: weight + ' oz',
-            drop: drop.toString(),
-            asin: amazonProduct.ASIN,
-            source: 'title_parsing'
-          });
-          
-          console.log(`   ✅ Extracted from title: ${length}" / ${weight}oz / ${drop}`);
-          return variants;
-        }
+        console.log(`   ✅ Extracted from title: ${length}" / ${weight}oz / ${explicitDrop}`);
+        return variants;
       }
     }
     
