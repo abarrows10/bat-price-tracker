@@ -615,7 +615,37 @@ extractColorway(amazonProduct) {
      }
    }
    
-   // Step 2: Check VariationAttributes for color_name
+   // Step 2: Map complex colorway patterns to standard
+   const complexColorwayPatterns = [
+     /white\s*\|\s*snow\s*camo/i,
+     /black\s*\|\s*silver/i,
+     /red\s*\|\s*white/i,
+     /blue\s*\|\s*white/i,
+     /navy\s*\|\s*gold/i,
+     /gray\s*\|\s*black/i,
+     /grey\s*\|\s*black/i,
+     /orange\s*\|\s*black/i,
+     /green\s*\|\s*white/i,
+     /yellow\s*\|\s*black/i,
+     /purple\s*\|\s*white/i,
+     /maroon\s*\|\s*white/i,
+     /royal\s*\|\s*white/i,
+     /scarlet\s*\|\s*gray/i,
+     /carbon\s*\|\s*red/i,
+     /matte\s*\|\s*\w+/i,
+     /glossy\s*\|\s*\w+/i,
+     /\w+\s*\|\s*camo/i,
+     /\w+\s*\|\s*fade/i,
+     /\w+\s*\|\s*burst/i
+   ];
+   
+   for (const pattern of complexColorwayPatterns) {
+     if (title.toLowerCase().match(pattern)) {
+       return 'standard';
+     }
+   }
+   
+   // Step 3: Check VariationAttributes for color_name
    if (amazonProduct.VariationAttributes) {
      const colorAttr = amazonProduct.VariationAttributes.find(attr => 
        attr.Name === 'color_name'
@@ -623,11 +653,12 @@ extractColorway(amazonProduct) {
      if (colorAttr && colorAttr.Value) {
        const colorValue = colorAttr.Value.trim();
        
-       // Step 3: Map basic/standard colors to "standard"
+       // Step 4: Map basic/standard colors to "standard"
        const standardColors = [
          'Orange', 'Black', 'White', 'Red', 'Blue', 'Green', 
          'Yellow', 'Gray', 'Grey', 'Silver', 'Natural',
-         'Standard', 'Default', 'Primary'
+         'Standard', 'Default', 'Primary', 'Navy', 'Royal',
+         'Maroon', 'Purple', 'Gold', 'Brown', 'Pink'
        ];
        
        // If it's a basic color, treat as standard
@@ -640,7 +671,7 @@ extractColorway(amazonProduct) {
      }
    }
    
-   // Step 4: Default fallback
+   // Step 5: Default fallback
    return 'standard';
    
  } catch (error) {
