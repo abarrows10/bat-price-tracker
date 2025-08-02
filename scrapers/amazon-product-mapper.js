@@ -309,8 +309,6 @@ class AmazonProductMapper {
   }
 
   // Extract size variants from product info
-// REPLACE the extractVariants method in amazon-product-mapper.js
-
 extractVariants(amazonProduct, title, features) {
   const variants = [];
   
@@ -367,7 +365,7 @@ extractVariants(amazonProduct, title, features) {
         }
       }
       
-      // Fallback: Look for size_name (older format)
+      // Fallback: Look for size_name (older format) - PROCESS BEFORE TITLE
       const sizeAttr = amazonProduct.VariationAttributes.find(attr => 
         attr.Name === 'size_name'
       );
@@ -378,26 +376,48 @@ extractVariants(amazonProduct, title, features) {
         // Try multiple patterns
         const patterns = [
           /(\d+(?:\.\d+)?)["']\s*[\/\-]?\s*(\d+(?:\.\d+)?)\s*oz/i,  // 30"/27 oz
-          /(\d+(?:\.\d+)?)\s*inch/i,                                // 31 Inch
-          /(\d+(?:\.\d+)?)in\s*[\/\-]\s*(\d+(?:\.\d+)?)oz/i,      // 32in/29oz  
-          /(\d+(?:\.\d+)?)\s*[\/\-]\s*(\d+(?:\.\d+)?)\s*\|/i,      // 34/31 |
-          /(\d+)"\s*(\d+)\s*oz/i,                                  // 33" 30 OZ
-          /(\d+)"\s*\(\-?(\d+)\)/i,                                 // 31" (-8)
+          /(\d+)"\s*(\d+)\s*oz/i,                                  // 28" 18 OZ
+          /(\d+)"\s*\(\-(\d+)\)/i,                                 // 31" (-8)
           /(\d+)'\s*\|\s*\-(\d+)/i,                                 // 33' | -3
           /(\d+)\-inch\s*\|\s*\-(\d+)/i,                            // 33-inch | -3
-          /(\d+)'\s*barrel\s*\|\s*(\d+)'\s*\|\s*\-(\d+)/i           // 2 5/8' Barrel | 33' | -3
+          /(\d+)'\s*barrel\s*\|\s*(\d+)'\s*\|\s*\-(\d+)/i,         // 2 5/8' Barrel | 33' | -3
+          /(\d+(?:\.\d+)?)\s*inch/i,                                // 31 Inch
+          /(\d+(?:\.\d+)?)in\s*[\/\-]\s*(\d+(?:\.\d+)?)oz/i,      // 32in/29oz  
+          /(\d+(?:\.\d+)?)\s*[\/\-]\s*(\d+(?:\.\d+)?)\s*\|/i       // 34/31 |
         ];
 
         for (const pattern of patterns) {
           const match = sizeAttr.Value.match(pattern);
           if (match) {
             const length = parseFloat(match[1]);
-            const weight = match[2] ? parseFloat(match[2]) : length - 3;
+            let weight, drop;
             
-            // Validate BBCOR range (29" - 34")
-            if (length >= 29 && length <= 34) {
-              const drop = -(length - weight);
-              
+            // Handle parentheses drop pattern: 31" (-8)
+            if (pattern.source.includes('\\(\\-')) {
+              const dropNum = parseInt(match[2]);
+              weight = length - dropNum;
+              drop = `-${dropNum}`;
+            } 
+            // Handle pipe drop patterns: 33' | -3 or 33-inch | -3
+            else if (pattern.source.includes('\\|\\s*\\-')) {
+              const dropNum = parseInt(match[2]);
+              weight = length - dropNum;
+              drop = `-${dropNum}`;
+            }
+            // Handle barrel pattern: 2 5/8' Barrel | 33' | -3
+            else if (pattern.source.includes('barrel')) {
+              const dropNum = parseInt(match[3]);
+              weight = length - dropNum;
+              drop = `-${dropNum}`;
+            }
+            // Default weight calculation for patterns with explicit weight
+            else {
+              weight = match[2] ? parseFloat(match[2]) : length - 10; // Default to USSSA -10
+              drop = -(length - weight);
+            }
+            
+            // Validate reasonable dimensions
+            if (length >= 24 && length <= 36 && weight >= 15 && weight <= 35) {
               variants.push({
                 length: length + '"',
                 weight: weight + ' oz',
@@ -418,7 +438,7 @@ extractVariants(amazonProduct, title, features) {
     const titleText = title.toLowerCase();
     let explicitDrop = null;
     
-    // Look for explicit drop in title FIRST
+    // Look for explicit drop in title
     const dropPatterns = [
       /\-(\d+)\s+usssa/i,           // "-8 USSSA"
       /\-(\d+)\s+youth/i,           // "-8 Youth"

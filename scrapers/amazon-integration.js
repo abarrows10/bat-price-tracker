@@ -188,51 +188,45 @@ class AmazonIntegration {
 
     // STEP 2: Check if we need to discover more variants (gap-filling)
     const variantsWithoutASINs = batModel.variants.filter(v => !v.asin || v.asin.trim() === '');
-    const needsDiscovery = variantsWithoutASINs.length > 0;
-    
+    const needsDiscovery = variantsWithoutASINs.length > 0 || (batModel.variants.length === 0 && batModel.amazon_asin);
+
     if (needsDiscovery) {
-      console.log(`   🔍 ${variantsWithoutASINs.length} variants still need ASINs - running discovery`);
+    console.log(`   🔍 ${variantsWithoutASINs.length} variants still need ASINs - running discovery`);
+    
+    // Use seed ASIN for discovery
+    if (batModel.amazon_asin) {
+      console.log(`   🔍 Discovering variants from seed ASIN: ${batModel.amazon_asin}`);
       
-      // Use seed ASIN for discovery
-      if (batModel.amazon_asin) {
-        console.log(`   🔍 Discovering variants from seed ASIN: ${batModel.amazon_asin}`);
-        
-        // Get the main product if not already retrieved
-        if (!allProducts.find(p => p.ASIN === batModel.amazon_asin)) {
-          const products = await this.apiClient.getItems([batModel.amazon_asin]);
-          if (products && products.length > 0) {
-            allProducts.push(...products);
+      // Skip individual seed ASIN fetch - it comes with variations with proper attributes
+      
+      // Get all size/length variations
+      console.log(`   🔍 Looking for size variations...`);
+      const variations = await this.apiClient.getVariations(batModel.amazon_asin);
+      
+      // Add variations that we don't already have
+      if (variations && variations.length > 0) {
+        variations.forEach(variation => {
+          if (!allProducts.find(p => p.ASIN === variation.ASIN)) {
+            allProducts.push(variation);
           }
-        }
-        
-        // Get all size/length variations
-        console.log(`   🔍 Looking for size variations...`);
-        const variations = await this.apiClient.getVariations(batModel.amazon_asin);
-        
-        // Add new variations that we don't already have
-        if (variations && variations.length > 0) {
-          variations.forEach(variation => {
-            if (!allProducts.find(p => p.ASIN === variation.ASIN)) {
-              allProducts.push(variation);
-            }
-          });
-        }
-
-        if (variations && variations.length > 0) {
-          console.log(`   ✅ Total products after discovery: ${allProducts.length} (stored + discovered)`);
-          console.log('\n🐛 DEBUG: All product titles after discovery:');
-          allProducts.forEach((product, i) => {
-            console.log(`  [${i}] ${product.ASIN}: ${product.ItemInfo?.Title?.DisplayValue}`);
-          });
-
-          // IMPORTANT: Store newly discovered ASINs for future use
-          await this.storeVariantASINs(batModel, allProducts);
-        }
-      } else if (allProducts.length === 0) {
-        // Only fall back to search if we have no products at all
-        console.log(`   🔎 No seed ASIN available - falling back to search`);
-        return await this.performSearchFallback(batModel);
+        });
       }
+
+      if (variations && variations.length > 0) {
+        console.log(`   ✅ Total products after discovery: ${allProducts.length} (stored + discovered)`);
+        console.log('\n🐛 DEBUG: All product titles after discovery:');
+        allProducts.forEach((product, i) => {
+          console.log(`  [${i}] ${product.ASIN}: ${product.ItemInfo?.Title?.DisplayValue}`);
+        });
+
+        // IMPORTANT: Store newly discovered ASINs for future use
+        await this.storeVariantASINs(batModel, allProducts);
+      }
+    } else if (allProducts.length === 0) {
+      // Only fall back to search if we have no products at all
+      console.log(`   🔎 No seed ASIN available - falling back to search`);
+      return await this.performSearchFallback(batModel);
+    }
     }
     
     // STEP 3: Process all products we have
@@ -357,8 +351,15 @@ async storeVariantASINs(batModel, amazonProducts) {
    let skippedCount = 0;
    
    for (const product of amazonProducts) {
+      // Skip seed ASIN ONLY if it doesn't have VariationAttributes
+      if (product.ASIN === batModel.amazon_asin && !product.VariationAttributes) {
+        console.log(`     ⏭️ Skipping seed ASIN ${product.ASIN} - no VariationAttributes`);
+        continue;
+      }
      const extractedInfo = this.mapper.extractBatInfo(product);
      const variants = extractedInfo.variants || [];
+
+    
      
      // STEP 2: Check if this product matches the seed colorway
      if (seedColorway) {
@@ -380,7 +381,7 @@ async storeVariantASINs(batModel, amazonProducts) {
          const dropMatch = dbVariant.drop === variant.drop;
          return lengthMatch && dropMatch;
        });
-       
+
        // If no matching variant exists, create it
        if (!matchingVariant) {
          console.log(`     🆕 Creating missing variant: ${variant.length}" ${variant.weight}oz ${variant.drop}`);
@@ -967,12 +968,12 @@ async function testAmazonIntegration() {
    // ===== CHOOSE ONE: COMMENT OUT THE OTHER =====
    
    //OPTION 1: Test single bat
-  //  const testBat = allBats.find(bat => bat.id === 122); // Change ID as needed
+  //  const testBat = allBats.find(bat => bat.id === 123); // Change ID as needed
   //  if (testBat) {
   //    console.log(`Testing single bat: ${testBat.brand} ${testBat.series} ${testBat.year}\n`);
   //    await integration.processBatModel(testBat);
   //  } else {
-  //    console.log('❌ Bat with specified ID 122 not found');
+  //    console.log('❌ Bat with specified ID 123 not found');
   //  }
    
    // OPTION 2: Test multiple bats (Pool Party vs Standard)
@@ -986,6 +987,8 @@ async function testAmazonIntegration() {
 //    console.error('❌ Test failed:', error);
 //  }
 // }
+
+
 
 // Export for use
 module.exports = AmazonIntegration;
