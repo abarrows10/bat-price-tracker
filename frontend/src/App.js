@@ -221,8 +221,6 @@ useMemo(() => {
   }, [bats, searchTerm, selectedCertifications, selectedBrands, selectedMaterials, 
       selectedConstructions, selectedDrops, selectedSwingWeights, selectedYears, priceRange, sortBy]);
 
-// ===== SPLIT POINT - PART 2 STARTS HERE =====
-// This continues from Part 1 - place this code immediately after the Part 1 code
 
   // Handle multi-select for filters
   const toggleFilter = (filterArray, setFilter, value) => {
@@ -462,7 +460,7 @@ useMemo(() => {
           {[
             { name: 'Amazon', key: 'amazon', priority: 1 },
             { name: 'JustBats', key: 'justbats', priority: 2 },
-            { name: "Dick's", key: 'dicks', priority: 3 }
+            //{ name: "Dick's", key: 'dicks', priority: 3 }
           ]
           .sort((a, b) => {
             const priceA = selectedVariant.price?.[a.key] || 999;
@@ -547,7 +545,7 @@ useMemo(() => {
   return (
  <div className="min-h-screen bg-black">
    {/* Header */}
-   <header className="bg-gray-800 shadow-lg border-b border-gray-700">
+   <header className="bg-black shadow-lg border-b border-bg-black">
      <div className="max-w-7xl mx-auto px-4 py-4">
        <div className="flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity" onClick={() => window.location.href = '/'}>
          <img 
