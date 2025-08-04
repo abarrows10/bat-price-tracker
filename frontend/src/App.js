@@ -84,7 +84,8 @@ useMemo(() => {
     });
     setSelectedVariants(prev => ({ ...prev, ...defaults }));
   }
-}, [bats, selectedVariants]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bats]);
 
   // Get unique filter values dynamically from current data
   const availableFilters = useMemo(() => {
