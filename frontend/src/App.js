@@ -16,84 +16,75 @@ const BatPriceTracker = () => {
   const [selectedSwingWeights, setSelectedSwingWeights] = useState([]);
   const [selectedYears, setSelectedYears] = useState([]);
   const [priceRange, setPriceRange] = useState([0, 600]);
-  const [sortBy, setSortBy] = useState('certification-price');
+  const [sortBy, setSortBy] = useState('year-price-high');
   const [selectedImage, setSelectedImage] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Selected variant for each bat (default to most popular size)
-  const [selectedVariants, setSelectedVariants] = useState(() => {
-    const defaults = {};
-    bats.forEach(bat => {
-      let defaultVariant;
-      if (bat.certification === 'BBCOR') {
-        defaultVariant = bat.variants?.find(v => v.length === '32"') || bat.variants?.[0];
-      } else if (bat.certification === 'USSSA') {
-        if (bat.variants?.some(v => v.drop === '-10')) {
-          defaultVariant = bat.variants.find(v => v.length === '29"' && v.drop === '-10') || 
-                          bat.variants.find(v => v.drop === '-10');
-        } else if (bat.variants?.some(v => v.drop === '-8')) {
-          defaultVariant = bat.variants.find(v => v.length === '30"' && v.drop === '-8') || 
-                          bat.variants.find(v => v.drop === '-8');
-        } else {
-          defaultVariant = bat.variants?.find(v => v.length === '31"' && v.drop === '-5') || 
-                          bat.variants?.find(v => v.drop === '-5');
-        }
-      } else if (bat.certification === 'USA Baseball') {
-        if (bat.variants?.some(v => v.drop === '-10')) {
-          defaultVariant = bat.variants.find(v => v.length === '29"' && v.drop === '-10') || 
-                          bat.variants.find(v => v.drop === '-10');
-        } else if (bat.variants?.some(v => v.drop === '-8')) {
-          defaultVariant = bat.variants.find(v => v.length === '30"' && v.drop === '-8') || 
-                          bat.variants.find(v => v.drop === '-8');
-        } else {
-          defaultVariant = bat.variants?.find(v => v.length === '31"' && v.drop === '-5') || 
-                          bat.variants?.find(v => v.drop === '-5');
-        }
+  // Selected variant for each bat (default to smallest size with price)
+const [selectedVariants, setSelectedVariants] = useState(() => {
+  const defaults = {};
+  bats.forEach(bat => {
+    if (bat.variants && bat.variants.length > 0) {
+      // Find variants that have a price
+      const variantsWithPrices = bat.variants.filter(variant => {
+        return variant.price && (
+          (variant.price.amazon && variant.price.amazon > 0) ||
+          (variant.price.dicks && variant.price.dicks > 0) ||
+          (variant.price.justbats && variant.price.justbats > 0)
+        );
+      });
+      
+      if (variantsWithPrices.length > 0) {
+        // Sort by length (ascending) to get smallest size
+        const sortedVariants = variantsWithPrices.sort((a, b) => {
+          const aLength = parseInt(a.length.replace('"', ''));
+          const bLength = parseInt(b.length.replace('"', ''));
+          return aLength - bLength;
+        });
+        defaults[bat.id] = sortedVariants[0];
+      } else {
+        // Fallback to first variant if none have prices
+        defaults[bat.id] = bat.variants[0];
       }
-      defaults[bat.id] = defaultVariant || bat.variants?.[0];
-    });
-    return defaults;
+    }
   });
+  return defaults;
+});
 
   // Update selectedVariants when bats data changes
-  useMemo(() => {
-    if (bats.length > 0) {
-      const defaults = {};
-      bats.forEach(bat => {
-        if (!selectedVariants[bat.id]) {
-          let defaultVariant;
-          if (bat.certification === 'BBCOR') {
-            defaultVariant = bat.variants?.find(v => v.length === '32"') || bat.variants?.[0];
-          } else if (bat.certification === 'USSSA') {
-            if (bat.variants?.some(v => v.drop === '-10')) {
-              defaultVariant = bat.variants.find(v => v.length === '29"' && v.drop === '-10') || 
-                              bat.variants.find(v => v.drop === '-10');
-            } else if (bat.variants?.some(v => v.drop === '-8')) {
-              defaultVariant = bat.variants.find(v => v.length === '30"' && v.drop === '-8') || 
-                              bat.variants.find(v => v.drop === '-8');
-            } else {
-              defaultVariant = bat.variants?.find(v => v.length === '31"' && v.drop === '-5') || 
-                              bat.variants?.find(v => v.drop === '-5');
-            }
-          } else if (bat.certification === 'USA Baseball') {
-            if (bat.variants?.some(v => v.drop === '-10')) {
-              defaultVariant = bat.variants.find(v => v.length === '29"' && v.drop === '-10') || 
-                              bat.variants.find(v => v.drop === '-10');
-            } else if (bat.variants?.some(v => v.drop === '-8')) {
-              defaultVariant = bat.variants.find(v => v.length === '30"' && v.drop === '-8') || 
-                              bat.variants.find(v => v.drop === '-8');
-            } else {
-              defaultVariant = bat.variants?.find(v => v.length === '31"' && v.drop === '-5') || 
-                              bat.variants?.find(v => v.drop === '-5');
-            }
+useMemo(() => {
+  if (bats.length > 0) {
+    const defaults = {};
+    bats.forEach(bat => {
+      if (!selectedVariants[bat.id]) {
+        if (bat.variants && bat.variants.length > 0) {
+          // Find variants that have a price
+          const variantsWithPrices = bat.variants.filter(variant => {
+            return variant.price && (
+              (variant.price.amazon && variant.price.amazon > 0) ||
+              (variant.price.dicks && variant.price.dicks > 0) ||
+              (variant.price.justbats && variant.price.justbats > 0)
+            );
+          });
+          
+          if (variantsWithPrices.length > 0) {
+            // Sort by length (ascending) to get smallest size
+            const sortedVariants = variantsWithPrices.sort((a, b) => {
+              const aLength = parseInt(a.length.replace('"', ''));
+              const bLength = parseInt(b.length.replace('"', ''));
+              return aLength - bLength;
+            });
+            defaults[bat.id] = sortedVariants[0];
+          } else {
+            // Fallback to first variant if none have prices
+            defaults[bat.id] = bat.variants[0];
           }
-          defaults[bat.id] = defaultVariant || bat.variants?.[0];
         }
-      });
-      setSelectedVariants(prev => ({ ...prev, ...defaults }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bats]);
+      }
+    });
+    setSelectedVariants(prev => ({ ...prev, ...defaults }));
+  }
+}, [bats, selectedVariants]);
 
   // Get unique filter values dynamically from current data
   const availableFilters = useMemo(() => {
@@ -197,16 +188,15 @@ const BatPriceTracker = () => {
         return lowest === 999999 ? 0 : lowest;
       };
 
-      if (sortBy === 'certification-price') {
-        // First by certification order
-        const certOrder = { 'BBCOR': 0, 'USSSA': 1, 'USA Baseball': 2 };
-        const certDiff = (certOrder[a.certification] || 999) - (certOrder[b.certification] || 999);
-        if (certDiff !== 0) return certDiff;
-        
-        // Then by price (high to low)
-        const aPrice = getLowestPrice(a);
-        const bPrice = getLowestPrice(b);
-        return bPrice - aPrice;
+      if (sortBy === 'year-price-high') {
+        // First by year (newest first)
+          const yearDiff = (b.year || 0) - (a.year || 0);
+          if (yearDiff !== 0) return yearDiff;
+          
+          // Then by price (high to low)
+          const aPriceHigh = getLowestPrice(a);
+          const bPriceHigh = getLowestPrice(b);
+          return bPriceHigh - aPriceHigh;
       }
       
       switch (sortBy) {
@@ -542,21 +532,21 @@ const BatPriceTracker = () => {
 
   // Loading and error states
   if (loading) return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+    <div className="min-h-screen bg-black flex items-center justify-center">
       <div className="text-white text-xl">Loading bats...</div>
     </div>
   );
 
   if (error) return (
-    <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+    <div className="min-h-screen bg-black flex items-center justify-center">
       <div className="text-red-400 text-xl">Error: {error}</div>
     </div>
   );
 
   return (
- <div className="min-h-screen bg-gray-900">
+ <div className="min-h-screen bg-black">
    {/* Header */}
-   <header className="bg-black shadow-lg border-b border-gray-700 sticky top-0 z-50">
+   <header className="bg-gray-800 shadow-lg border-b border-gray-700">
      <div className="max-w-7xl mx-auto px-4 py-4">
        <div className="flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity" onClick={() => window.location.href = '/'}>
          <img 
@@ -832,7 +822,7 @@ const BatPriceTracker = () => {
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
               >
-                <option value="certification-price">Certification, Price High-Low</option>
+                <option value="year-price-high">Year + Price: High to Low</option>
                 <option value="name">Name</option>
                 <option value="price-low">Price: Low to High</option>
                 <option value="price-high">Price: High to Low</option>

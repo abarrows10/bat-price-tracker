@@ -351,11 +351,18 @@ async storeVariantASINs(batModel, amazonProducts) {
    let skippedCount = 0;
    
    for (const product of amazonProducts) {
-      // Skip seed ASIN ONLY if it doesn't have VariationAttributes
-      if (product.ASIN === batModel.amazon_asin && !product.VariationAttributes) {
-        console.log(`     ⏭️ Skipping seed ASIN ${product.ASIN} - no VariationAttributes`);
-        continue;
-      }
+    // Skip stored ASINs - they're only for pricing
+    const isStoredASIN = batModel.variants.some(v => v.asin === product.ASIN);
+    if (isStoredASIN) {
+      console.log(`     ⏭️ Skipping stored ASIN ${product.ASIN} - pricing only`);
+      continue;
+    }
+    
+    // Skip seed ASIN ONLY if it doesn't have VariationAttributes
+    if (product.ASIN === batModel.amazon_asin && !product.VariationAttributes) {
+      console.log(`     ⏭️ Skipping seed ASIN ${product.ASIN} - no VariationAttributes`);
+      continue;
+    }
      const extractedInfo = this.mapper.extractBatInfo(product);
      const variants = extractedInfo.variants || [];
 
