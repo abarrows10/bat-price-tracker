@@ -463,57 +463,15 @@ extractVariants(amazonProduct, title, features) {
       const dropNum = Math.abs(parseInt(explicitDrop));
       const weight = length - dropNum;
       
-      // Validate reasonable dimensions
-      if (length >= 24 && length <= 36 && weight >= 15 && weight <= 35) {
-        variants.push({
-          length: length + '"',
-          weight: weight + ' oz',
-          drop: explicitDrop,
-          asin: amazonProduct.ASIN,
-          source: 'title_parsing'
-        });
-        
-        console.log(`   ✅ Extracted from title: ${length}" / ${weight}oz / ${explicitDrop}`);
-        return variants;
       }
-    }
     
-    // FALLBACK: Default variant based on certification
-    console.log(`   ⚠️ No size info found, using default`);
-    const certification = this.extractCertification(title, features);
-    const defaultLength = this.extractDefaultLength(title);
-    
-    let defaultWeight, defaultDrop;
-    if (certification === 'BBCOR') {
-      defaultWeight = (defaultLength - 3) + ' oz';
-      defaultDrop = '-3';
-    } else if (certification === 'USSSA') {
-      defaultWeight = (defaultLength - 10) + ' oz';
-      defaultDrop = '-10';
-    } else {
-      defaultWeight = (defaultLength - 8) + ' oz';
-      defaultDrop = '-8';
-    }
-    
-    variants.push({
-      length: defaultLength + '"',
-      weight: defaultWeight,
-      drop: defaultDrop,
-      asin: amazonProduct.ASIN,
-      source: 'default_fallback'
-    });
-    
+    // No size info found - return empty variants array
+    console.log(`   ⚠️ No size info found, skipping variant creation`);
     return variants;
     
   } catch (error) {
     console.log(`   ❌ Error extracting variants: ${error.message}`);
-    return [{
-      length: '32"',
-      weight: '29 oz',
-      drop: '-3',
-      asin: amazonProduct.ASIN,
-      source: 'error_fallback'
-    }];
+    return [];
   }
 }
 
