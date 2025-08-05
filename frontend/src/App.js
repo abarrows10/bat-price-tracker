@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Filter, TrendingUp, ExternalLink, Star, ChevronDown } from 'lucide-react';
 import { useBats } from './useBats';
+import WelcomePopup from './WelcomePopup';
 
 const BatPriceTracker = () => {
   // Get real data from database
@@ -532,7 +533,7 @@ useMemo(() => {
   // Loading and error states
   if (loading) return (
     <div className="min-h-screen bg-black flex items-center justify-center">
-      <div className="text-white text-xl">Loading bats...</div>
+      <div className="text-white text-xl">Loading Bats...</div>
     </div>
   );
 
@@ -544,6 +545,7 @@ useMemo(() => {
 
   return (
  <div className="min-h-screen bg-black">
+    <WelcomePopup />
    {/* Header */}
    <header className="bg-black shadow-lg border-b border-bg-black">
      <div className="max-w-7xl mx-auto px-4 py-4">

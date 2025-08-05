@@ -974,7 +974,7 @@ async function testAmazonIntegration() {
    
    // ===== CHOOSE ONE: COMMENT OUT THE OTHER =====
    
-   //OPTION 1: Test single bat
+  //  OPTION 1: Test single bat
   //  const testBat = allBats.find(bat => bat.id === 123); // Change ID as needed
   //  if (testBat) {
   //    console.log(`Testing single bat: ${testBat.brand} ${testBat.series} ${testBat.year}\n`);
@@ -990,6 +990,7 @@ async function testAmazonIntegration() {
 //      await integration.processBatModel(testBat);
 //    }
    
+   // Turn on with either test option
 //  } catch (error) {
 //    console.error('❌ Test failed:', error);
 //  }
