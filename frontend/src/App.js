@@ -134,7 +134,9 @@ useMemo(() => {
     };
   }, [bats, searchTerm, selectedCertifications]);
 
-  const certifications = ['BBCOR', 'USSSA', 'USA Baseball'];
+  const certifications = ['BBCOR',
+                          'USSSA',
+                          ];
 
   // Filter bats based on current filters - WITH LOCKED SORTING
   const filteredBats = useMemo(() => {

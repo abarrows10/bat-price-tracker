@@ -315,10 +315,11 @@ extractVariants(amazonProduct, title, features) {
   try {
     console.log(`🔍 Extracting variants for ASIN: ${amazonProduct.ASIN}`);
     
+    
     // PRIORITY 1: Handle VariationAttributes from GetVariations response
     if (amazonProduct.VariationAttributes) {
       console.log(`   📏 Found VariationAttributes`);
-      
+
       let length = null;
       let drop = null;
       
