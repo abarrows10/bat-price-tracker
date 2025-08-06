@@ -1,3 +1,32 @@
-# https://www.robotstxt.org/robotstxt.html
 User-agent: *
-Disallow:
+Allow: /
+
+# Sitemap
+Sitemap: https://trackthatbat.com/sitemap.xml
+
+# Block unnecessary crawling of assets
+Disallow: /static/js/
+Disallow: /static/css/
+Disallow: /*.json$
+
+# Allow important assets for SEO
+Allow: /static/media/
+Allow: /favicon.ico
+Allow: /logo*.png
+Allow: /manifest.json
+
+# Popular search engines
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+# Crawl delay (optional)
+Crawl-delay: 1
