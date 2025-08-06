@@ -308,20 +308,39 @@ class AmazonProductMapper {
     }
   }
 
-  // Extract size variants from product info
-extractVariants(amazonProduct, title, features) {
-  const variants = [];
+  // Extract size variants from product info 
+extractVariants(amazonProduct, title, features) {   
+  const variants = [];      
   
-  try {
-    console.log(`🔍 Extracting variants for ASIN: ${amazonProduct.ASIN}`);
+  try {     
+    console.log(`🔍 Extracting variants for ASIN: ${amazonProduct.ASIN}`);     
+    console.log(`🐛 DEBUG: Full Amazon product object for ${amazonProduct.ASIN}:`);     
+    console.log(JSON.stringify(amazonProduct, null, 2));          
     
-    
-    // PRIORITY 1: Handle VariationAttributes from GetVariations response
-    if (amazonProduct.VariationAttributes) {
-      console.log(`   📏 Found VariationAttributes`);
-
-      let length = null;
-      let drop = null;
+    // PRIORITY 1: Handle VariationAttributes from GetVariations response     
+    if (amazonProduct.VariationAttributes) {       
+      console.log(`   📏 Found VariationAttributes`);       
+      console.log(JSON.stringify(amazonProduct.VariationAttributes, null, 2));       
+      
+      let length = null;       
+      let drop = null;       
+      
+      // Extract drop - BBCOR logic
+      if (!drop) {
+        // First try to find explicit drop in title
+        const titleDropMatch = title.match(/-(\d+)/);
+        if (titleDropMatch) {
+          drop = '-' + titleDropMatch[1];
+          console.log(`   🎯 Drop found in title: ${drop}`);
+        } else {
+          // For BBCOR bats, assume -3 if no explicit drop found
+          const certification = this.extractCertification(title, features);
+          if (certification === 'BBCOR') {
+            drop = '-3';
+            console.log(`   🎯 BBCOR bat detected, assuming drop: ${drop}`);
+          }
+        }
+      }
       
       // Look for bat_drop_ratio first (USSSA bats)
       const dropAttr = amazonProduct.VariationAttributes.find(attr => 
@@ -334,22 +353,37 @@ extractVariants(amazonProduct, title, features) {
       }
       
       // Look for length
-      const lengthAttr = amazonProduct.VariationAttributes.find(attr => 
-        attr.Name === 'item_length_numeric'
-      );
-      
-      if (lengthAttr && lengthAttr.Value) {
-        const lengthMatch = lengthAttr.Value.match(/(\d+(?:\.\d+)?)/);
-        if (lengthMatch) {
-          length = parseFloat(lengthMatch[1]);
-          console.log(`   🎯 Length found: ${length}"`);
-        }
-      }
-      
-      // If we have both length and drop, calculate weight
-      if (length && drop) {
-        const dropNum = parseInt(drop);
-        const weight = length - Math.abs(dropNum);
+const lengthAttr = amazonProduct.VariationAttributes.find(attr => 
+  attr.Name === 'item_length_numeric'
+);
+
+if (lengthAttr && lengthAttr.Value) {
+  const lengthMatch = lengthAttr.Value.match(/(\d+(?:\.\d+)?)/);
+  if (lengthMatch) {
+    length = parseFloat(lengthMatch[1]);
+    console.log(`   🎯 Length found: ${length}"`);
+  }
+}
+
+// Look for size_name attribute (common format)
+if (!length) {
+  const sizeAttr = amazonProduct.VariationAttributes.find(attr => 
+    attr.Name === 'size_name'
+  );
+  
+  if (sizeAttr && sizeAttr.Value) {
+    const sizeMatch = sizeAttr.Value.match(/(\d+)\s*inch/i);
+    if (sizeMatch) {
+      length = parseInt(sizeMatch[1]);
+      console.log(`   🎯 Length found from size_name: ${length}"`);
+    }
+  }
+}
+
+// If we have both length and drop, calculate weight
+if (length && drop) {
+  const dropNum = parseInt(drop);
+  const weight = length - Math.abs(dropNum);
         
         // Validate reasonable bat dimensions
         if (length >= 24 && length <= 36 && weight >= 15 && weight <= 35) {
