@@ -3,6 +3,25 @@ import { Search, Filter, TrendingUp, ExternalLink, Star, ChevronDown } from 'luc
 import { useBats } from './useBats';
 import WelcomePopup from './WelcomePopup';
 
+
+// Tracking clicks in Google Analytics
+const trackBatClick = (batBrand, batSeries, retailer, price, variant) => {
+  if (window.gtag) {
+    window.gtag('event', 'bat_click', {
+      event_category: 'engagement',
+      event_label: `${batBrand} ${batSeries}`,
+      custom_parameters: {
+        bat_brand: batBrand,
+        bat_series: batSeries,
+        retailer: retailer,
+        price: price,
+        variant_length: variant.length,
+        variant_drop: variant.drop
+      }
+    });
+  }
+};
+
 const BatPriceTracker = () => {
   // Get real data from database
   const { bats, loading, error } = useBats();
@@ -488,6 +507,9 @@ useMemo(() => {
               onClick={() => {
                 console.log('selectedVariant ASIN:', selectedVariant.asin);
                 console.log('Full selectedVariant:', selectedVariant);
+
+                trackBatClick(bat.brand, bat.series, retailer.name, price, selectedVariant);
+                
                 let url = '#';
                 if (retailer.key === 'amazon') {
                   url = selectedVariant.asin 
