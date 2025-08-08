@@ -12,3 +12,8 @@
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
 }
+
+/* Custom font classes */
+.font-staatliches {
+  font-family: 'Staatliches', sans-serif;
+}

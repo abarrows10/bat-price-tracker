@@ -314,13 +314,13 @@ extractVariants(amazonProduct, title, features) {
   
   try {     
     console.log(`🔍 Extracting variants for ASIN: ${amazonProduct.ASIN}`);     
-    console.log(`🐛 DEBUG: Full Amazon product object for ${amazonProduct.ASIN}:`);     
-    console.log(JSON.stringify(amazonProduct, null, 2));          
+    // console.log(`🐛 DEBUG: Full Amazon product object for ${amazonProduct.ASIN}:`);     
+    // console.log(JSON.stringify(amazonProduct, null, 2));          
     
     // PRIORITY 1: Handle VariationAttributes from GetVariations response     
     if (amazonProduct.VariationAttributes) {       
-      console.log(`   📏 Found VariationAttributes`);       
-      console.log(JSON.stringify(amazonProduct.VariationAttributes, null, 2));       
+      // console.log(`   📏 Found VariationAttributes`);       
+      // console.log(JSON.stringify(amazonProduct.VariationAttributes, null, 2));       
       
       let length = null;       
       let drop = null;       

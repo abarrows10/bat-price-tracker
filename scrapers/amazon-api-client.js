@@ -217,6 +217,8 @@ class AmazonApiClient {
 
   // Get detailed information for specific items
   async getItems(asins) {
+  console.log('   ⏱️ Amazon API rate limiting...');
+  await new Promise(resolve => setTimeout(resolve, 1200));
     if (!Array.isArray(asins)) {
       asins = [asins];
     }

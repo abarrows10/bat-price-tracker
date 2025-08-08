@@ -580,7 +580,7 @@ useMemo(() => {
            className="h-48 md:h-60 w-auto"
          />
        </div>
-       <p className="text-gray-300 mt-1 text-sm md:text-base text-center">Compare baseball bat prices across top retailers</p>
+       <p className="text-gray-300 mt-1 text-sm md:text-base text-center font-staatliches">Compare bat prices across top retailers</p>
      </div>
    </header>
 

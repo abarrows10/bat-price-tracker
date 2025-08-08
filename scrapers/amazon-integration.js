@@ -298,7 +298,7 @@ class AmazonIntegration {
         }
         
         // Rate limiting is handled by the API client
-        await new Promise(resolve => setTimeout(resolve, 500));
+        await new Promise(resolve => setTimeout(resolve, 1500));
       }
       
       if (bestResults.length > 0) {
@@ -903,7 +903,7 @@ async updateExistingBatPrices(databaseBat, searchResults) {
         // Delay between bat models to respect rate limits
         if (i < modelsToProcess.length - 1) {
           console.log('   ⏱️  Rate limiting delay...');
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          await new Promise(resolve => setTimeout(resolve, 5000));
         }
       }
       
@@ -946,42 +946,42 @@ async updateExistingBatPrices(databaseBat, searchResults) {
 // =============================================
 // TEST FUNCTION ALL BATS
 // =============================================
-async function testAmazonIntegration() {
-  const integration = new AmazonIntegration();
+// async function testAmazonIntegration() {
+//   const integration = new AmazonIntegration();
   
-  console.log('🧪 TESTING Amazon API Integration');
-  console.log('Running all bats...\n');
+//   console.log('🧪 TESTING Amazon API Integration');
+//   console.log('Running all bats...\n');
   
-  try {
-    await integration.run(); // Process all bats
-  } catch (error) {
-    console.error('❌ Test failed:', error);
-  }
-  }
+//   try {
+//     await integration.run(); // Process all bats
+//   } catch (error) {
+//     console.error('❌ Test failed:', error);
+//   }
+//   }
 
 // =============================================
 // TEST FUNCTION SPECIFIC BAT MODEL ID
 // =============================================
 
-// async function testAmazonIntegration() {
-//  const integration = new AmazonIntegration();
+async function testAmazonIntegration() {
+ const integration = new AmazonIntegration();
  
-//  console.log('🧪 TESTING Amazon API Integration');
+ console.log('🧪 TESTING Amazon API Integration');
  
-//  try {
-//    const allBats = await integration.getAllBatModels();
-//    console.log('Available bat IDs:', allBats.map(bat => bat.id));
+ try {
+   const allBats = await integration.getAllBatModels();
+   console.log('Available bat IDs:', allBats.map(bat => bat.id));
    
    // ===== CHOOSE ONE: COMMENT OUT THE OTHER =====
    
   //  OPTION 1: Test single bat
-  //  const testBat = allBats.find(bat => bat.id === 123); // Change ID as needed
-  //  if (testBat) {
-  //    console.log(`Testing single bat: ${testBat.brand} ${testBat.series} ${testBat.year}\n`);
-  //    await integration.processBatModel(testBat);
-  //  } else {
-  //    console.log('❌ Bat with specified ID 123 not found');
-  //  }
+   const testBat = allBats.find(bat => bat.id === 47); // Change ID as needed
+   if (testBat) {
+     console.log(`Testing single bat: ${testBat.brand} ${testBat.series} ${testBat.year}\n`);
+     await integration.processBatModel(testBat);
+   } else {
+     console.log('❌ Bat with specified ID 47 not found');
+   }
    
    // OPTION 2: Test multiple bats (Pool Party vs Standard)
   //  const testBats = allBats.filter(bat => bat.id === 50 || bat.id === 53);
@@ -991,10 +991,10 @@ async function testAmazonIntegration() {
   //  }
    
    // Turn on with either test option
-//  } catch (error) {
-//    console.error('❌ Test failed:', error);
-//  }
-// }
+ } catch (error) {
+   console.error('❌ Test failed:', error);
+ }
+}
 
 
 
