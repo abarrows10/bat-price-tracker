@@ -573,14 +573,14 @@ useMemo(() => {
    {/* Header */}
    <header className="bg-black shadow-lg border-b border-bg-black">
      <div className="max-w-7xl mx-auto px-4 py-4">
-       <div className="flex items-center justify-center cursor-pointer hover:opacity-80 transition-opacity" onClick={() => window.location.href = '/'}>
+       <div className="flex items-center justify-center cursor-pointer" onClick={() => window.location.href = '/'}>
          <img 
            src="/logo.png" 
            alt="Bat Price Tracker" 
            className="h-48 md:h-60 w-auto"
          />
        </div>
-       <p className="text-gray-300 mt-1 text-sm md:text-base text-center font-staatliches">Compare bat prices across top retailers</p>
+       <p className="text-gray-300 mt-1 text-lg md:text-xl text-center font-staatliches">Compare bat prices across top retailers</p>
      </div>
    </header>
 
