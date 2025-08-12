@@ -28,7 +28,7 @@ const BatPriceTracker = () => {
 
   // State for filters and search
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCertifications, setSelectedCertifications] = useState(['BBCOR']);
+  const [selectedCertifications, setSelectedCertifications] = useState(['USSSA']);
   const [selectedBrands, setSelectedBrands] = useState([]);
   const [selectedMaterials, setSelectedMaterials] = useState([]);
   const [selectedConstructions, setSelectedConstructions] = useState([]);
